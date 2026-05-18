@@ -14,11 +14,17 @@ import {
 import { formatCurrency } from "@/lib/utils/formatCurrency";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, PackagePlus } from "lucide-react";
+import {
+  StockQuantityBadge,
+  StockStatusBadge,
+} from "@/components/inventory/StockStatusBadge";
+import { AdjustStockModal } from "@/components/inventory/AdjustStockModal";
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
 
   async function load() {
     const supabase = createClient();
@@ -100,12 +106,24 @@ export default function AdminProductsPage() {
                 {(p.category as { name?: string })?.name ?? "—"} ·{" "}
                 {formatCurrency(p.price)}
               </p>
+              <section className="mt-2 flex flex-wrap items-center gap-2">
+                <StockQuantityBadge product={p} />
+                <StockStatusBadge product={p} />
+              </section>
               <section className="mt-2 flex items-center justify-between">
                 <Switch
                   checked={p.is_available}
                   onCheckedChange={(v) => toggle(p.id, v)}
                 />
                 <section className="flex gap-1">
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    title="Adjust stock"
+                    onClick={() => setAdjustProduct(p)}
+                  >
+                    <PackagePlus className="h-4 w-4" />
+                  </Button>
                   <Button size="icon" variant="outline" asChild>
                     <Link href={`/admin/products/${p.id}`}>
                       <Pencil className="h-4 w-4" />
@@ -134,6 +152,8 @@ export default function AdminProductsPage() {
               <th className="p-3">Category</th>
               <th className="p-3">Price</th>
               <th className="p-3">Discount</th>
+              <th className="p-3">Stock</th>
+              <th className="p-3">Status</th>
               <th className="p-3">Available</th>
               <th className="p-3">Actions</th>
             </tr>
@@ -157,6 +177,12 @@ export default function AdminProductsPage() {
                 <td className="p-3">{formatCurrency(p.price)}</td>
                 <td className="p-3">{p.discount_percent}%</td>
                 <td className="p-3">
+                  <StockQuantityBadge product={p} />
+                </td>
+                <td className="p-3">
+                  <StockStatusBadge product={p} />
+                </td>
+                <td className="p-3">
                   <Switch
                     checked={p.is_available}
                     onCheckedChange={(v) => toggle(p.id, v)}
@@ -164,6 +190,14 @@ export default function AdminProductsPage() {
                 </td>
                 <td className="p-3">
                   <section className="flex gap-2">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      title="Adjust stock"
+                      onClick={() => setAdjustProduct(p)}
+                    >
+                      <PackagePlus className="h-4 w-4" />
+                    </Button>
                     <Button size="icon" variant="outline" asChild>
                       <Link href={`/admin/products/${p.id}`}>
                         <Pencil className="h-4 w-4" />
@@ -183,6 +217,13 @@ export default function AdminProductsPage() {
           </tbody>
         </table>
       </section>
+
+      <AdjustStockModal
+        product={adjustProduct}
+        open={!!adjustProduct}
+        onOpenChange={(open) => !open && setAdjustProduct(null)}
+        onSuccess={load}
+      />
     </section>
   );
 }

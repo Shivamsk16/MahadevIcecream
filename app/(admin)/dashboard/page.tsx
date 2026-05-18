@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { DashboardMetrics, Order } from "@/lib/types";
+import { DashboardMetrics, Order, Product } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils/formatCurrency";
 import { formatDateTime } from "@/lib/utils/formatDate";
 import { OrderStatusBadge } from "@/components/shared/OrderStatusBadge";
@@ -21,6 +21,8 @@ import {
 } from "recharts";
 import { startOfDay, subDays, format } from "date-fns";
 import { toast } from "sonner";
+import { AdjustStockModal } from "@/components/inventory/AdjustStockModal";
+import { getProductStockStatus } from "@/lib/utils/stock";
 
 const COLORS = ["#E53935", "#FF9800", "#4CAF50", "#2196F3", "#9C27B0"];
 
@@ -28,6 +30,25 @@ export default function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [chartData, setChartData] = useState<{ day: string; orders: number }[]>([]);
+  const [outOfStockProducts, setOutOfStockProducts] = useState<Product[]>([]);
+  const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
+  const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
+
+  async function fetchInventoryAlerts() {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("products")
+      .select("*, category:categories(name)")
+      .order("stock_quantity", { ascending: true });
+
+    const all = (data as Product[]) ?? [];
+    setOutOfStockProducts(
+      all.filter((p) => getProductStockStatus(p) === "out_of_stock")
+    );
+    setLowStockProducts(
+      all.filter((p) => getProductStockStatus(p) === "low_stock")
+    );
+  }
 
   async function fetchData() {
     const supabase = createClient();
@@ -75,8 +96,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData();
+    fetchInventoryAlerts();
     const supabase = createClient();
-    const channel = supabase
+    const ordersChannel = supabase
       .channel("orders-channel")
       .on(
         "postgres_changes",
@@ -84,8 +106,17 @@ export default function DashboardPage() {
         () => fetchData()
       )
       .subscribe();
+    const productsChannel = supabase
+      .channel("dashboard-products")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "products" },
+        () => fetchInventoryAlerts()
+      )
+      .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(ordersChannel);
+      supabase.removeChannel(productsChannel);
     };
   }, []);
 
@@ -231,6 +262,88 @@ export default function DashboardPage() {
           )}
         </section>
       </article>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-gray-900">Inventory Alerts</h2>
+        <section className="grid gap-4 lg:grid-cols-2">
+          <article className="rounded-xl border bg-white">
+            <h3 className="border-b p-4 font-semibold text-red-700">Out of Stock</h3>
+            <section className="divide-y">
+              {outOfStockProducts.length === 0 ? (
+                <p className="p-4 text-sm text-green-600">
+                  All products are in stock ✓
+                </p>
+              ) : (
+                outOfStockProducts.map((p) => (
+                  <section
+                    key={p.id}
+                    className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <section>
+                      <p className="font-medium">{p.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {(p.category as { name?: string })?.name ?? "—"}
+                      </p>
+                    </section>
+                    <button
+                      type="button"
+                      className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+                      onClick={() => setAdjustProduct(p)}
+                    >
+                      Restock Now
+                    </button>
+                  </section>
+                ))
+              )}
+            </section>
+          </article>
+
+          <article className="rounded-xl border bg-white">
+            <h3 className="border-b p-4 font-semibold text-amber-700">Low Stock</h3>
+            <section className="divide-y">
+              {lowStockProducts.length === 0 ? (
+                <p className="p-4 text-sm text-green-600">
+                  No low stock alerts ✓
+                </p>
+              ) : (
+                lowStockProducts.map((p) => (
+                  <section
+                    key={p.id}
+                    className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <section>
+                      <p className="font-medium">{p.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {(p.category as { name?: string })?.name ?? "—"} ·{" "}
+                        {p.stock_quantity} left (threshold:{" "}
+                        {p.low_stock_threshold ?? 10})
+                      </p>
+                    </section>
+                    <button
+                      type="button"
+                      className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+                      onClick={() => setAdjustProduct(p)}
+                    >
+                      Adjust
+                    </button>
+                  </section>
+                ))
+              )}
+            </section>
+          </article>
+        </section>
+      </section>
+
+      <AdjustStockModal
+        product={adjustProduct}
+        open={!!adjustProduct}
+        onOpenChange={(open) => {
+          if (!open) setAdjustProduct(null);
+        }}
+        onSuccess={() => {
+          fetchInventoryAlerts();
+        }}
+      />
     </section>
   );
 }

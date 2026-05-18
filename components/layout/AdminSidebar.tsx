@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/products", label: "Products", icon: Package },
+  { href: "/inventory", label: "Inventory", icon: Package },
   { href: "/admin/orders", label: "Orders", icon: ClipboardList },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/categories", label: "Categories", icon: Tags },

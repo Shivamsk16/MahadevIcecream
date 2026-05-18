@@ -26,6 +26,8 @@ const schema = z.object({
   purchase_quantity: z.number().optional(),
   description: z.string().optional(),
   is_available: z.boolean(),
+  stock_quantity: z.number().int().min(0),
+  low_stock_threshold: z.number().int().min(0),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -53,6 +55,8 @@ export function ProductForm({
       purchase_quantity: product?.purchase_quantity ?? undefined,
       description: product?.description ?? "",
       is_available: product?.is_available ?? true,
+      stock_quantity: product?.stock_quantity ?? 0,
+      low_stock_threshold: product?.low_stock_threshold ?? 10,
     },
   });
 
@@ -82,7 +86,8 @@ export function ProductForm({
         {
           ...values,
           image_url: imageUrl || product?.image_url,
-          stock_quantity: product?.stock_quantity ?? 0,
+          stock_quantity: values.stock_quantity,
+          low_stock_threshold: values.low_stock_threshold,
         },
         product?.id
       );
@@ -204,6 +209,29 @@ export function ProductForm({
           onCheckedChange={(v) => form.setValue("is_available", v)}
         />
         <Label>Is Available</Label>
+      </section>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <section>
+          <Label>Current Stock Quantity *</Label>
+          <Input
+            type="number"
+            min={0}
+            step={1}
+            {...form.register("stock_quantity", { valueAsNumber: true })}
+          />
+        </section>
+        <section>
+          <Label>Low Stock Threshold</Label>
+          <Input
+            type="number"
+            min={0}
+            step={1}
+            {...form.register("low_stock_threshold", { valueAsNumber: true })}
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Alert when stock falls to this level or below (default 10)
+          </p>
+        </section>
       </section>
       <Button type="submit" disabled={uploading} className="w-full sm:w-auto">
         {product ? "Update" : "Create"} Product

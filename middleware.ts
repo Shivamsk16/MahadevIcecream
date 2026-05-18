@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const ADMIN_PREFIXES = [
   "/dashboard",
   "/admin",
+  "/inventory",
   "/customers",
   "/categories",
 ];

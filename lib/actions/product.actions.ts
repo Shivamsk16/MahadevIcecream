@@ -16,6 +16,8 @@ export async function toggleProductAvailability(
   if (error) throw new Error(error.message);
   revalidatePath("/admin/products");
   revalidatePath("/products");
+  revalidatePath("/inventory");
+  revalidatePath("/dashboard");
 }
 
 export async function deleteProduct(productId: string) {
@@ -44,4 +46,6 @@ export async function saveProduct(
 
   revalidatePath("/admin/products");
   revalidatePath("/products");
+  revalidatePath("/inventory");
+  revalidatePath("/dashboard");
 }

@@ -25,6 +25,29 @@ export interface Category {
   is_active: boolean;
 }
 
+export type StockStatus = "in_stock" | "low_stock" | "out_of_stock";
+
+export type StockChangeType =
+  | "manual_add"
+  | "manual_deduct"
+  | "order_placed"
+  | "order_cancelled";
+
+export interface StockLog {
+  id: string;
+  product_id: string;
+  change_type: StockChangeType;
+  quantity_change: number;
+  quantity_before: number;
+  quantity_after: number;
+  order_id: string | null;
+  note: string | null;
+  changed_by: string | null;
+  created_at: string;
+  order?: { order_number: string } | null;
+  changer?: { full_name: string } | null;
+}
+
 export interface Product {
   id: string;
   category_id: string | null;
@@ -35,6 +58,7 @@ export interface Product {
   image_url: string | null;
   sku: string | null;
   stock_quantity: number;
+  low_stock_threshold: number;
   is_available: boolean;
   discount_percent: number;
   scheme_label: string | null;
