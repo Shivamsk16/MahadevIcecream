@@ -1,18 +1,22 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useCallback, useEffect, useState } from "react";
 import { DashboardMetrics, Order, Product } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils/formatCurrency";
 import { formatDateTime } from "@/lib/utils/formatDate";
+import { getOrderCustomerName } from "@/lib/utils/order";
 import { OrderStatusBadge } from "@/components/shared/OrderStatusBadge";
 import { updateOrderStatus } from "@/lib/actions/order.actions";
+import {
+  getInventoryAlerts,
+  loadDashboardData,
+} from "@/lib/actions/dashboard.actions";
+import { useRealtimeDashboard } from "@/lib/hooks/useRealtimeDashboard";
 import Link from "next/link";
-import { startOfDay, subDays, format } from "date-fns";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import { AdjustStockModal } from "@/components/inventory/AdjustStockModal";
-import { getProductStockStatus } from "@/lib/utils/stock";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { MetricCard } from "@/components/shared/MetricCard";
 import { FadeIn } from "@/components/motion/FadeIn";
@@ -51,8 +55,17 @@ function ChartSkeleton() {
   );
 }
 
+const EMPTY_METRICS: DashboardMetrics = {
+  total_orders: 0,
+  total_order_value: 0,
+  pending_orders: 0,
+  pending_order_value: 0,
+  confirmed_orders: 0,
+  delivered_orders: 0,
+};
+
 export default function DashboardPage() {
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [metrics, setMetrics] = useState<DashboardMetrics>(EMPTY_METRICS);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [chartData, setChartData] = useState<{ day: string; orders: number }[]>(
     []
@@ -62,116 +75,79 @@ export default function DashboardPage() {
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function fetchInventoryAlerts() {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("products")
-      .select("*, category:categories(name)")
-      .order("stock_quantity", { ascending: true });
+  const refreshInventory = useCallback(async () => {
+    try {
+      const { outOfStock, lowStock } = await getInventoryAlerts();
+      setOutOfStockProducts(outOfStock);
+      setLowStockProducts(lowStock);
+    } catch (err) {
+      console.error("[Dashboard] refreshInventory:", err);
+    }
+  }, []);
 
-    const all = (data as Product[]) ?? [];
-    setOutOfStockProducts(
-      all.filter((p) => getProductStockStatus(p) === "out_of_stock")
-    );
-    setLowStockProducts(
-      all.filter((p) => getProductStockStatus(p) === "low_stock")
-    );
-  }
+  const refreshOrdersAndMetrics = useCallback(async () => {
+    try {
+      const payload = await loadDashboardData();
+      setMetrics(payload.metrics);
+      setRecentOrders(payload.recentOrders);
+      setChartData(payload.chartData);
+      setOutOfStockProducts(payload.outOfStockProducts);
+      setLowStockProducts(payload.lowStockProducts);
+      if (payload.errors.length > 0) {
+        console.error("[Dashboard] partial errors:", payload.errors);
+      }
+    } catch (err) {
+      console.error("[Dashboard] refreshOrdersAndMetrics:", err);
+      toast.error("Could not refresh dashboard data");
+    }
+  }, []);
 
-  async function fetchData() {
-    const supabase = createClient();
-    const today = startOfDay(new Date()).toISOString();
-
-    const { data: todayOrders } = await supabase
-      .from("orders")
-      .select("*, order_items(*), customer:profiles(full_name)")
-      .gte("placed_at", today)
-      .order("placed_at", { ascending: false });
-
-    const orders = todayOrders ?? [];
-    setRecentOrders(orders.slice(0, 10) as Order[]);
-
-    setMetrics({
-      total_orders: orders.length,
-      total_order_value: orders.reduce((s, o) => s + Number(o.net_amount), 0),
-      pending_orders: orders.filter((o) => o.status === "pending").length,
-      pending_order_value: orders
-        .filter((o) => o.status === "pending")
-        .reduce((s, o) => s + Number(o.net_amount), 0),
-      confirmed_orders: orders.filter((o) => o.status === "confirmed").length,
-      delivered_orders: orders.filter((o) => o.status === "delivered").length,
-    });
-
-    const last7 = Array.from({ length: 7 }, (_, i) => {
-      const d = subDays(new Date(), 6 - i);
-      return {
-        day: format(d, "EEE"),
-        date: format(d, "yyyy-MM-dd"),
-        orders: 0,
-      };
-    });
-
-    const weekStart = subDays(new Date(), 6).toISOString();
-    const { data: weekOrders } = await supabase
-      .from("orders")
-      .select("placed_at")
-      .gte("placed_at", weekStart);
-
-    weekOrders?.forEach((o) => {
-      const day = format(new Date(o.placed_at), "yyyy-MM-dd");
-      const entry = last7.find((l) => l.date === day);
-      if (entry) entry.orders += 1;
-    });
-
-    setChartData(last7.map(({ day, orders }) => ({ day, orders })));
-    setLoading(false);
-  }
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      await refreshOrdersAndMetrics();
+    } finally {
+      setLoading(false);
+    }
+  }, [refreshOrdersAndMetrics]);
 
   useEffect(() => {
-    fetchData();
-    fetchInventoryAlerts();
-    const supabase = createClient();
-    const ordersChannel = supabase
-      .channel("orders-channel")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
-        () => fetchData()
-      )
-      .subscribe();
-    const productsChannel = supabase
-      .channel("dashboard-products")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "products" },
-        () => fetchInventoryAlerts()
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ordersChannel);
-      supabase.removeChannel(productsChannel);
-    };
-  }, []);
+    loadAll();
+  }, [loadAll]);
+
+  useRealtimeDashboard({
+    onOrdersChange: () => {
+      void refreshOrdersAndMetrics();
+    },
+    onProductsChange: () => {
+      void refreshInventory();
+    },
+  });
 
   async function handleStatusChange(orderId: string, status: Order["status"]) {
     try {
       await updateOrderStatus(orderId, status);
       toast.success("Status updated");
-      fetchData();
+      await refreshOrdersAndMetrics();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Update failed");
     }
   }
 
-  const pieData = metrics
-    ? [
-        { name: "Pending", value: metrics.pending_orders },
-        { name: "Confirmed", value: metrics.confirmed_orders },
-        { name: "Delivered", value: metrics.delivered_orders },
-      ].filter((d) => d.value > 0)
-    : [];
+  const pieData = [
+    { name: "Pending", value: metrics.pending_orders },
+    { name: "Confirmed", value: metrics.confirmed_orders },
+    { name: "Delivered", value: metrics.delivered_orders },
+  ].filter((d) => d.value > 0);
 
   const todayLabel = format(new Date(), "EEEE, MMMM d");
+  const safeChartData =
+    chartData.length > 0
+      ? chartData
+      : Array.from({ length: 7 }, (_, i) => ({
+          day: format(new Date(Date.now() - (6 - i) * 86400000), "EEE"),
+          orders: 0,
+        }));
 
   return (
     <div className="space-y-8">
@@ -188,16 +164,16 @@ export default function DashboardPage() {
         <div className="dashboard-card bg-gradient-to-br from-surface to-primary-soft/30 p-6 dark:from-zinc-900 dark:to-red-950/20 sm:p-8">
           <p className="section-label">Welcome back</p>
           <h2 className="mt-1 text-2xl font-semibold text-heading sm:text-3xl">
-            {metrics?.pending_orders
+            {metrics.pending_orders
               ? `${metrics.pending_orders} orders need your attention`
-              : "All caught up for today"}
+              : "All caught up"}
           </h2>
           <p className="mt-2 text-sm text-muted">
-            Revenue today:{" "}
+            Total revenue:{" "}
             <span className="font-semibold text-heading">
-              {formatCurrency(metrics?.total_order_value ?? 0)}
+              {formatCurrency(metrics.total_order_value)}
             </span>
-            {metrics?.pending_order_value ? (
+            {metrics.pending_order_value > 0 ? (
               <>
                 {" "}
                 · Pending value:{" "}
@@ -219,30 +195,30 @@ export default function DashboardPage() {
           <>
             <MetricCard
               label="Total Orders"
-              value={metrics?.total_orders ?? 0}
-              sub="Today"
+              value={metrics.total_orders}
+              sub="All orders"
               icon={ShoppingBag}
               delay={0}
             />
             <MetricCard
               label="Total Value"
-              value={formatCurrency(metrics?.total_order_value ?? 0)}
-              sub="Today"
+              value={formatCurrency(metrics.total_order_value)}
+              sub="All orders"
               icon={IndianRupee}
               delay={0.05}
             />
             <MetricCard
               label="Pending"
-              value={metrics?.pending_orders ?? 0}
+              value={metrics.pending_orders}
               sub="Action needed"
               icon={Clock}
-              trend={metrics?.pending_orders ? "up" : "neutral"}
+              trend={metrics.pending_orders ? "up" : "neutral"}
               delay={0.1}
             />
             <MetricCard
               label="Delivered"
-              value={metrics?.delivered_orders ?? 0}
-              sub="Today"
+              value={metrics.delivered_orders}
+              sub="All orders"
               icon={Truck}
               trend="up"
               delay={0.15}
@@ -255,17 +231,23 @@ export default function DashboardPage() {
         <FadeIn delay={0.1} className="dashboard-card p-6">
           <h2 className="card-title">Orders (Last 7 Days)</h2>
           <div className="mt-4">
-            <OrdersBarChart data={chartData} />
+            {safeChartData.every((d) => d.orders === 0) && !loading ? (
+              <p className="flex h-[240px] items-center justify-center text-sm text-muted">
+                No orders in the last 7 days
+              </p>
+            ) : (
+              <OrdersBarChart data={safeChartData} />
+            )}
           </div>
         </FadeIn>
         <FadeIn delay={0.15} className="dashboard-card p-6">
-          <h2 className="card-title">Today by Status</h2>
+          <h2 className="card-title">Orders by Status</h2>
           <div className="mt-4">
             {pieData.length > 0 ? (
               <StatusPieChart data={pieData} />
             ) : (
               <p className="flex h-[240px] items-center justify-center text-sm text-muted">
-                No orders today
+                No orders yet
               </p>
             )}
           </div>
@@ -274,7 +256,7 @@ export default function DashboardPage() {
 
       <FadeIn delay={0.2}>
         <div className="table-container">
-          <div className="border-b border-neutral-200 px-6 py-4">
+          <div className="border-b border-neutral-200 px-6 py-4 dark:border-zinc-800">
             <h2 className="section-title text-base">Recent Orders</h2>
           </div>
           <div className="max-h-[420px] overflow-auto">
@@ -300,12 +282,9 @@ export default function DashboardPage() {
                         {order.order_number}
                       </Link>
                     </td>
-                    <td>
-                      {(order.customer as { full_name?: string })?.full_name ??
-                        "—"}
-                    </td>
+                    <td>{getOrderCustomerName(order)}</td>
                     <td className="font-medium tabular-nums">
-                      {formatCurrency(order.net_amount)}
+                      {formatCurrency(Number(order.net_amount) || 0)}
                     </td>
                     <td>
                       <OrderStatusBadge status={order.status} />
@@ -335,9 +314,9 @@ export default function DashboardPage() {
                 ))}
               </tbody>
             </table>
-            {recentOrders.length === 0 && (
+            {!loading && recentOrders.length === 0 && (
               <p className="p-12 text-center text-sm text-muted">
-                No orders today
+                No orders yet
               </p>
             )}
           </div>
@@ -422,7 +401,7 @@ export default function DashboardPage() {
           if (!open) setAdjustProduct(null);
         }}
         onSuccess={() => {
-          fetchInventoryAlerts();
+          void refreshInventory();
         }}
       />
     </div>

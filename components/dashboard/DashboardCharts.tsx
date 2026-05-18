@@ -47,10 +47,15 @@ export function OrdersBarChart({
   data: { day: string; orders: number }[];
 }) {
   const theme = useChartTheme();
+  const safeData = Array.isArray(data) && data.length > 0 ? data : [];
+
+  if (safeData.length === 0) {
+    return null;
+  }
 
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+      <BarChart data={safeData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
         <CartesianGrid
           strokeDasharray="3 3"
           stroke={theme.grid}
@@ -81,12 +86,17 @@ export function StatusPieChart({
   data: { name: string; value: number }[];
 }) {
   const theme = useChartTheme();
+  const safeData = Array.isArray(data) ? data.filter((d) => d.value > 0) : [];
+
+  if (safeData.length === 0) {
+    return null;
+  }
 
   return (
     <ResponsiveContainer width="100%" height={240}>
       <PieChart>
         <Pie
-          data={data}
+          data={safeData}
           dataKey="value"
           nameKey="name"
           cx="50%"
@@ -100,7 +110,7 @@ export function StatusPieChart({
           labelLine={false}
           style={{ fill: theme.labelFill, fontSize: 11 }}
         >
-          {data.map((_, i) => (
+          {safeData.map((_, i) => (
             <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
           ))}
         </Pie>
