@@ -68,9 +68,9 @@ export default function AdminProductsPage() {
 
   return (
     <section className="space-y-4">
-      <section className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Products</h1>
-        <Button asChild>
+      <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold sm:text-2xl">Products</h1>
+        <Button asChild className="w-full sm:w-auto">
           <Link href="/admin/products/new">
             <Plus className="mr-2 h-4 w-4" />
             Add Product
@@ -78,8 +78,55 @@ export default function AdminProductsPage() {
         </Button>
       </section>
 
-      <section className="overflow-x-auto rounded-xl border bg-white">
-        <table className="w-full text-sm">
+      {/* Mobile cards */}
+      <section className="space-y-3 md:hidden">
+        {products.map((p) => (
+          <article
+            key={p.id}
+            className="flex gap-3 rounded-xl border bg-white p-3 shadow-sm"
+          >
+            <section className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+              {p.image_url ? (
+                <Image src={p.image_url} alt="" fill className="object-cover" />
+              ) : (
+                <span className="flex h-full items-center justify-center text-2xl">
+                  🍦
+                </span>
+              )}
+            </section>
+            <section className="min-w-0 flex-1">
+              <p className="font-medium leading-tight">{p.name}</p>
+              <p className="text-xs text-gray-500">
+                {(p.category as { name?: string })?.name ?? "—"} ·{" "}
+                {formatCurrency(p.price)}
+              </p>
+              <section className="mt-2 flex items-center justify-between">
+                <Switch
+                  checked={p.is_available}
+                  onCheckedChange={(v) => toggle(p.id, v)}
+                />
+                <section className="flex gap-1">
+                  <Button size="icon" variant="outline" asChild>
+                    <Link href={`/admin/products/${p.id}`}>
+                      <Pencil className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => remove(p.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </section>
+              </section>
+            </section>
+          </article>
+        ))}
+      </section>
+
+      <section className="hidden overflow-x-auto rounded-xl border bg-white md:block">
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="border-b bg-gray-50 text-left">
               <th className="p-3">Image</th>

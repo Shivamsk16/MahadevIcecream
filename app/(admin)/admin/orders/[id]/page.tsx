@@ -65,13 +65,13 @@ export default function AdminOrderDetailPage() {
         ← Back to Orders
       </Link>
 
-      <section className="flex flex-wrap items-start justify-between gap-4">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <section>
-          <h1 className="text-2xl font-bold">{order.order_number}</h1>
+          <h1 className="text-xl font-bold sm:text-2xl">{order.order_number}</h1>
           <OrderStatusBadge status={order.status} />
         </section>
         <select
-          className="rounded-md border px-3 py-2"
+          className="w-full rounded-md border px-3 py-2 sm:w-auto"
           value={order.status}
           onChange={(e) => updateStatus(e.target.value as Order["status"])}
         >
@@ -95,7 +95,7 @@ export default function AdminOrderDetailPage() {
       </section>
 
       <section className="overflow-x-auto rounded-xl border bg-white">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[400px] text-sm">
           <thead>
             <tr className="border-b bg-gray-50 text-left">
               <th className="p-3">Product</th>

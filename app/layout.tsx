@@ -19,6 +19,12 @@ export const metadata: Metadata = {
   description: "B2B Ice Cream Ordering & Distribution Management",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {

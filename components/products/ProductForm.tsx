@@ -97,7 +97,7 @@ export function ProductForm({
   const previewUrl = imageUrl || product?.image_url;
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="max-w-lg space-y-4">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="w-full max-w-2xl space-y-4">
       <section>
         <Label>Product Name *</Label>
         <Input {...form.register("name")} />
@@ -116,7 +116,7 @@ export function ProductForm({
           ))}
         </select>
       </section>
-      <section className="grid grid-cols-2 gap-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <section>
           <Label>Price (₹) *</Label>
           <Input
@@ -134,7 +134,7 @@ export function ProductForm({
           />
         </section>
       </section>
-      <section className="grid grid-cols-2 gap-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <section>
           <Label>Discount %</Label>
           <Input
@@ -166,7 +166,7 @@ export function ProductForm({
         </p>
 
         {previewUrl ? (
-          <section className="relative mb-3 aspect-square w-full max-w-xs overflow-hidden rounded-lg bg-gray-100">
+          <section className="relative mb-3 aspect-square w-full max-w-full overflow-hidden rounded-lg bg-gray-100 sm:max-w-xs">
             <Image
               src={previewUrl}
               alt="Preview"
@@ -176,7 +176,7 @@ export function ProductForm({
             />
           </section>
         ) : (
-          <section className="mb-3 flex aspect-square max-w-xs items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+          <section className="mb-3 flex aspect-square w-full max-w-full items-center justify-center rounded-lg bg-gray-100 text-gray-400 sm:max-w-xs">
             <ImagePlus className="h-12 w-12" />
           </section>
         )}
@@ -205,7 +205,7 @@ export function ProductForm({
         />
         <Label>Is Available</Label>
       </section>
-      <Button type="submit" disabled={uploading}>
+      <Button type="submit" disabled={uploading} className="w-full sm:w-auto">
         {product ? "Update" : "Create"} Product
       </Button>
     </form>

@@ -32,7 +32,7 @@ export default function CategoriesPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-2xl font-bold">Categories</h1>
+      <h1 className="text-xl font-bold sm:text-2xl">Categories</h1>
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {categories.map((cat) => (
           <article

@@ -65,17 +65,17 @@ export default function AdminOrdersPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-2xl font-bold">Orders</h1>
+      <h1 className="text-xl font-bold sm:text-2xl">Orders</h1>
 
-      <section className="flex flex-wrap gap-3">
+      <section className="flex flex-col gap-3 sm:flex-row">
         <input
-          className="rounded-md border px-3 py-2 text-sm"
+          className="w-full rounded-md border px-3 py-2 text-sm"
           placeholder="Search order or customer..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <select
-          className="rounded-md border px-3 py-2 text-sm"
+          className="w-full rounded-md border px-3 py-2 text-sm sm:w-auto"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as OrderStatus | "all")}
         >
@@ -87,8 +87,42 @@ export default function AdminOrdersPage() {
         </select>
       </section>
 
-      <section className="overflow-x-auto rounded-xl border bg-white">
-        <table className="w-full text-sm">
+      <section className="space-y-3 md:hidden">
+        {filtered.map((order) => (
+          <article key={order.id} className="rounded-xl border bg-white p-4">
+            <section className="flex items-start justify-between gap-2">
+              <Link
+                href={`/admin/orders/${order.id}`}
+                className="font-medium text-brand-600"
+              >
+                {order.order_number}
+              </Link>
+              <OrderStatusBadge status={order.status} />
+            </section>
+            <p className="mt-1 text-sm text-gray-600">
+              {(order.customer as { full_name?: string })?.full_name ?? "—"}
+            </p>
+            <p className="text-xs text-gray-500">
+              {formatDateTime(order.placed_at)} · {formatCurrency(order.net_amount)}
+            </p>
+            <select
+              className="mt-3 w-full rounded-md border px-3 py-2 text-sm"
+              value={order.status}
+              onChange={(e) =>
+                handleStatus(order.id, e.target.value as OrderStatus)
+              }
+            >
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </article>
+        ))}
+      </section>
+
+      <section className="hidden overflow-x-auto rounded-xl border bg-white md:block">
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="border-b bg-gray-50 text-left">
               <th className="p-3">Order #</th>

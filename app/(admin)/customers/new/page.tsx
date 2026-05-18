@@ -89,10 +89,10 @@ export default function NewCustomerPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-2xl font-bold">Add Customer</h1>
+      <h1 className="text-xl font-bold sm:text-2xl">Add Customer</h1>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="max-w-lg space-y-4 rounded-xl border bg-white p-6"
+        className="w-full max-w-lg space-y-4 rounded-xl border bg-white p-4 sm:p-6"
       >
         <section>
           <Label>Full Name *</Label>
@@ -118,7 +118,7 @@ export default function NewCustomerPage() {
           <Label>Address</Label>
           <Input {...form.register("address")} />
         </section>
-        <section className="grid grid-cols-2 gap-4">
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <section>
             <Label>City</Label>
             <Input {...form.register("city")} />

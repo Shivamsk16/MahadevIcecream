@@ -109,7 +109,7 @@ export default function DashboardPage() {
 
   return (
     <section className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Sales Dashboard</h1>
+      <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Sales Dashboard</h1>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
@@ -175,7 +175,7 @@ export default function DashboardPage() {
       <article className="rounded-xl border bg-white">
         <h2 className="border-b p-4 font-semibold">Recent Orders</h2>
         <section className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[600px] text-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-left">
                 <th className="p-3">Order #</th>

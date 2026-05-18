@@ -25,7 +25,7 @@ export default async function EditProductPage({
 
   return (
     <section className="space-y-4">
-      <h1 className="text-2xl font-bold">Edit Product</h1>
+      <h1 className="text-xl font-bold sm:text-2xl">Edit Product</h1>
       <ProductForm product={product} categories={categories ?? []} />
     </section>
   );

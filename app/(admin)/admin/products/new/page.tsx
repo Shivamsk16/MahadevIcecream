@@ -10,7 +10,7 @@ export default async function NewProductPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-2xl font-bold">Add Product</h1>
+      <h1 className="text-xl font-bold sm:text-2xl">Add Product</h1>
       <ProductForm categories={categories ?? []} />
     </section>
   );
