@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Product } from "@/lib/types";
 import { ProductGrid } from "./ProductGrid";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { FadeIn } from "@/components/motion/FadeIn";
 
 export function ProductsView({
   initialCategory,
@@ -64,26 +65,33 @@ export function ProductsView({
 
   if (error) {
     return (
-      <section className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+      <section className="rounded-2xl border border-red-200 bg-danger-soft p-4 text-sm text-danger">
         <p className="font-semibold">Could not load products</p>
         <p className="mt-1">{error}</p>
-        <p className="mt-2 text-xs text-red-600">
+        <p className="mt-2 text-xs opacity-80">
           Run the full script in{" "}
-          <code className="rounded bg-red-100 px-1">supabase/fix-rls.sql</code>{" "}
-          in Supabase SQL Editor, then refresh this page.
+          <code className="rounded bg-red-100/80 px-1">supabase/fix-rls.sql</code>{" "}
+          in Supabase SQL Editor, then refresh.
         </p>
       </section>
     );
   }
 
   return (
-    <section>
-      <h1 className="mb-4 text-xl font-semibold">Products</h1>
+    <FadeIn className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-heading">
+          Products
+        </h1>
+        <p className="mt-1 text-sm text-muted">
+          {products.length} items available
+        </p>
+      </div>
       <ProductGrid
         products={products}
         categories={categories}
         initialCategory={initialCategory}
       />
-    </section>
+    </FadeIn>
   );
 }

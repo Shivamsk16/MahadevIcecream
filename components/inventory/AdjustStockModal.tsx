@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 type AdjustStockModalProps = {
   product: Product | null;
@@ -74,51 +75,46 @@ export function AdjustStockModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Adjust Stock</DialogTitle>
+          <DialogTitle>Adjust stock</DialogTitle>
           <DialogDescription>
-            Add or remove inventory for this product. Changes are logged.
+            Add or remove inventory. All changes are logged.
           </DialogDescription>
         </DialogHeader>
 
         {product && (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <section className="rounded-lg bg-gray-50 p-3 text-sm">
-              <p className="font-medium text-gray-900">{product.name}</p>
-              <p className="mt-1 text-gray-600">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="rounded-xl border border-neutral-200 bg-surface-secondary p-4 text-sm dark:border-zinc-700 dark:bg-zinc-800/50">
+              <p className="font-medium text-heading">{product.name}</p>
+              <p className="mt-1 text-muted">
                 Current stock:{" "}
-                <span className="font-semibold">{product.stock_quantity}</span>
+                <span className="font-semibold tabular-nums text-heading">
+                  {product.stock_quantity}
+                </span>
               </p>
-            </section>
+            </div>
 
-            <section>
+            <div className="space-y-2">
               <Label>Action</Label>
-              <section className="mt-2 flex gap-2">
-                <button
-                  type="button"
-                  className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${
-                    action === "add"
-                      ? "border-brand-600 bg-brand-50 text-brand-700"
-                      : "border-gray-300 text-gray-600 hover:bg-gray-50"
-                  }`}
-                  onClick={() => setAction("add")}
-                >
-                  Add Stock
-                </button>
-                <button
-                  type="button"
-                  className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${
-                    action === "deduct"
-                      ? "border-brand-600 bg-brand-50 text-brand-700"
-                      : "border-gray-300 text-gray-600 hover:bg-gray-50"
-                  }`}
-                  onClick={() => setAction("deduct")}
-                >
-                  Deduct Stock
-                </button>
-              </section>
-            </section>
+              <div className="grid grid-cols-2 gap-2">
+                {(["add", "deduct"] as const).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    className={cn(
+                      "rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors",
+                      action === type
+                        ? "border-primary bg-primary-soft text-primary"
+                        : "border-neutral-200 text-muted hover:bg-neutral-50"
+                    )}
+                    onClick={() => setAction(type)}
+                  >
+                    {type === "add" ? "Add stock" : "Deduct stock"}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-            <section>
+            <div className="space-y-2">
               <Label htmlFor="adjust-qty">Quantity</Label>
               <Input
                 id="adjust-qty"
@@ -130,9 +126,9 @@ export function AdjustStockModal({
                 onChange={(e) => setQuantity(e.target.value)}
                 placeholder="e.g. 50"
               />
-            </section>
+            </div>
 
-            <section>
+            <div className="space-y-2">
               <Label htmlFor="adjust-note">Note (optional)</Label>
               <Input
                 id="adjust-note"
@@ -140,7 +136,7 @@ export function AdjustStockModal({
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="e.g. New stock received"
               />
-            </section>
+            </div>
 
             <DialogFooter>
               <Button

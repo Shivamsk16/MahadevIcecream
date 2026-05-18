@@ -14,17 +14,22 @@ import {
 import { formatCurrency } from "@/lib/utils/formatCurrency";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus, PackagePlus } from "lucide-react";
+import { Pencil, Trash2, Plus, PackagePlus, LayoutGrid, List } from "lucide-react";
 import {
   StockQuantityBadge,
   StockStatusBadge,
 } from "@/components/inventory/StockStatusBadge";
 import { AdjustStockModal } from "@/components/inventory/AdjustStockModal";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { FadeIn } from "@/components/motion/FadeIn";
+import { cn } from "@/lib/utils";
+import { getProductStockStatus } from "@/lib/utils/stock";
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
+  const [view, setView] = useState<"table" | "cards">("table");
 
   async function load() {
     const supabase = createClient();
@@ -66,157 +71,151 @@ export default function AdminProductsPage() {
 
   if (loading) {
     return (
-      <section className="flex justify-center py-16">
+      <div className="flex justify-center py-24">
         <LoadingSpinner />
-      </section>
+      </div>
     );
   }
 
   return (
-    <section className="space-y-4">
-      <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-bold sm:text-2xl">Products</h1>
-        <Button asChild className="w-full sm:w-auto">
-          <Link href="/admin/products/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Product
-          </Link>
-        </Button>
-      </section>
+    <div className="space-y-8">
+      <PageHeader title="Products" description="Manage catalog, pricing, and availability">
+        <div className="flex items-center gap-2">
+          <div className="hidden rounded-xl border border-neutral-200 p-1 sm:flex">
+            <button
+              type="button"
+              onClick={() => setView("table")}
+              className={cn(
+                "rounded-lg p-2 transition-colors",
+                view === "table" ? "bg-primary-soft text-primary" : "text-muted"
+              )}
+              aria-label="Table view"
+            >
+              <List className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("cards")}
+              className={cn(
+                "rounded-lg p-2 transition-colors",
+                view === "cards" ? "bg-primary-soft text-primary" : "text-muted"
+              )}
+              aria-label="Card view"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
+          <Button asChild>
+            <Link href="/admin/products/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Product
+            </Link>
+          </Button>
+        </div>
+      </PageHeader>
 
       {/* Mobile cards */}
       <section className="space-y-3 md:hidden">
-        {products.map((p) => (
-          <article
-            key={p.id}
-            className="flex gap-3 rounded-xl border bg-white p-3 shadow-sm"
-          >
-            <section className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gray-100">
-              {p.image_url ? (
-                <Image src={p.image_url} alt="" fill className="object-cover" />
-              ) : (
-                <span className="flex h-full items-center justify-center text-2xl">
-                  🍦
-                </span>
-              )}
-            </section>
-            <section className="min-w-0 flex-1">
-              <p className="font-medium leading-tight">{p.name}</p>
-              <p className="text-xs text-gray-500">
-                {(p.category as { name?: string })?.name ?? "—"} ·{" "}
-                {formatCurrency(p.price)}
-              </p>
-              <section className="mt-2 flex flex-wrap items-center gap-2">
-                <StockQuantityBadge product={p} />
-                <StockStatusBadge product={p} />
-              </section>
-              <section className="mt-2 flex items-center justify-between">
-                <Switch
-                  checked={p.is_available}
-                  onCheckedChange={(v) => toggle(p.id, v)}
-                />
-                <section className="flex gap-1">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    title="Adjust stock"
-                    onClick={() => setAdjustProduct(p)}
-                  >
-                    <PackagePlus className="h-4 w-4" />
-                  </Button>
-                  <Button size="icon" variant="outline" asChild>
-                    <Link href={`/admin/products/${p.id}`}>
-                      <Pencil className="h-4 w-4" />
-                    </Link>
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={() => remove(p.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
-                </section>
-              </section>
-            </section>
-          </article>
+        {products.map((p, i) => (
+          <FadeIn key={p.id} delay={i * 0.03}>
+            <ProductAdminCard
+              product={p}
+              onToggle={toggle}
+              onRemove={remove}
+              onAdjust={() => setAdjustProduct(p)}
+            />
+          </FadeIn>
         ))}
       </section>
 
-      <section className="hidden overflow-x-auto rounded-xl border bg-white md:block">
-        <table className="w-full min-w-[640px] text-sm">
-          <thead>
-            <tr className="border-b bg-gray-50 text-left">
-              <th className="p-3">Image</th>
-              <th className="p-3">Name</th>
-              <th className="p-3">Category</th>
-              <th className="p-3">Price</th>
-              <th className="p-3">Discount</th>
-              <th className="p-3">Stock</th>
-              <th className="p-3">Status</th>
-              <th className="p-3">Available</th>
-              <th className="p-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => (
-              <tr key={p.id} className="border-b">
-                <td className="p-3">
-                  <section className="relative h-10 w-10 overflow-hidden rounded bg-gray-100">
-                    {p.image_url ? (
-                      <Image src={p.image_url} alt="" fill className="object-cover" />
-                    ) : (
-                      <span className="flex h-full items-center justify-center">🍦</span>
-                    )}
-                  </section>
-                </td>
-                <td className="p-3 font-medium">{p.name}</td>
-                <td className="p-3">
-                  {(p.category as { name?: string })?.name ?? "—"}
-                </td>
-                <td className="p-3">{formatCurrency(p.price)}</td>
-                <td className="p-3">{p.discount_percent}%</td>
-                <td className="p-3">
-                  <StockQuantityBadge product={p} />
-                </td>
-                <td className="p-3">
-                  <StockStatusBadge product={p} />
-                </td>
-                <td className="p-3">
-                  <Switch
-                    checked={p.is_available}
-                    onCheckedChange={(v) => toggle(p.id, v)}
-                  />
-                </td>
-                <td className="p-3">
-                  <section className="flex gap-2">
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      title="Adjust stock"
-                      onClick={() => setAdjustProduct(p)}
-                    >
-                      <PackagePlus className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="outline" asChild>
-                      <Link href={`/admin/products/${p.id}`}>
-                        <Pencil className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={() => remove(p.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </section>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+      {view === "cards" && (
+        <section className="hidden gap-4 sm:grid-cols-2 lg:grid-cols-3 md:grid">
+          {products.map((p, i) => (
+            <FadeIn key={p.id} delay={i * 0.03}>
+              <ProductAdminCard
+                product={p}
+                onToggle={toggle}
+                onRemove={remove}
+                onAdjust={() => setAdjustProduct(p)}
+                large
+              />
+            </FadeIn>
+          ))}
+        </section>
+      )}
+
+      {view === "table" && (
+        <div className="table-container hidden md:block">
+          <div className="overflow-x-auto">
+            <table className="data-table min-w-[720px]">
+              <thead>
+                <tr>
+                  <th>Image</th>
+                  <th>Name</th>
+                  <th>Category</th>
+                  <th>Price</th>
+                  <th>Discount</th>
+                  <th>Stock</th>
+                  <th>Status</th>
+                  <th>Available</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      <ProductThumb product={p} />
+                    </td>
+                    <td className="font-medium text-heading">{p.name}</td>
+                    <td className="text-muted">
+                      {(p.category as { name?: string })?.name ?? "—"}
+                    </td>
+                    <td className="tabular-nums">{formatCurrency(p.price)}</td>
+                    <td className="tabular-nums">{p.discount_percent}%</td>
+                    <td>
+                      <StockQuantityBadge product={p} />
+                    </td>
+                    <td>
+                      <StockStatusBadge product={p} />
+                    </td>
+                    <td>
+                      <Switch
+                        checked={p.is_available}
+                        onCheckedChange={(v) => toggle(p.id, v)}
+                      />
+                    </td>
+                    <td>
+                      <div className="flex gap-1">
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          title="Adjust stock"
+                          onClick={() => setAdjustProduct(p)}
+                        >
+                          <PackagePlus className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="outline" asChild>
+                          <Link href={`/admin/products/${p.id}`}>
+                            <Pencil className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          onClick={() => remove(p.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-danger" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <AdjustStockModal
         product={adjustProduct}
@@ -224,6 +223,93 @@ export default function AdminProductsPage() {
         onOpenChange={(open) => !open && setAdjustProduct(null)}
         onSuccess={load}
       />
-    </section>
+    </div>
+  );
+}
+
+function ProductThumb({ product }: { product: Product }) {
+  const isOut = getProductStockStatus(product) === "out_of_stock";
+  return (
+    <div
+      className={cn(
+        "relative h-11 w-11 overflow-hidden rounded-lg bg-surface-secondary",
+        isOut && "opacity-60 grayscale"
+      )}
+    >
+      {product.image_url ? (
+        <Image src={product.image_url} alt="" fill className="object-cover" />
+      ) : (
+        <span className="flex h-full items-center justify-center">🍦</span>
+      )}
+    </div>
+  );
+}
+
+function ProductAdminCard({
+  product: p,
+  onToggle,
+  onRemove,
+  onAdjust,
+  large,
+}: {
+  product: Product;
+  onToggle: (id: string, v: boolean) => void;
+  onRemove: (id: string) => void;
+  onAdjust: () => void;
+  large?: boolean;
+}) {
+  const isOut = getProductStockStatus(p) === "out_of_stock";
+
+  return (
+    <article
+      className={cn(
+        "flex gap-4 rounded-2xl border border-neutral-200 bg-surface p-4 shadow-sm transition-shadow hover:shadow-card",
+        isOut && "opacity-90"
+      )}
+    >
+      <div
+        className={cn(
+          "relative shrink-0 overflow-hidden rounded-xl bg-surface-secondary",
+          large ? "h-24 w-24" : "h-16 w-16",
+          isOut && "grayscale"
+        )}
+      >
+        {p.image_url ? (
+          <Image src={p.image_url} alt="" fill className="object-cover" />
+        ) : (
+          <span className="flex h-full items-center justify-center text-2xl">🍦</span>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-medium text-heading">{p.name}</p>
+        <p className="text-xs text-muted">
+          {(p.category as { name?: string })?.name ?? "—"} ·{" "}
+          {formatCurrency(p.price)}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <StockQuantityBadge product={p} />
+          <StockStatusBadge product={p} />
+        </div>
+        <div className="mt-3 flex items-center justify-between">
+          <Switch
+            checked={p.is_available}
+            onCheckedChange={(v) => onToggle(p.id, v)}
+          />
+          <div className="flex gap-1">
+            <Button size="icon" variant="outline" onClick={onAdjust}>
+              <PackagePlus className="h-4 w-4" />
+            </Button>
+            <Button size="icon" variant="outline" asChild>
+              <Link href={`/admin/products/${p.id}`}>
+                <Pencil className="h-4 w-4" />
+              </Link>
+            </Button>
+            <Button size="icon" variant="outline" onClick={() => onRemove(p.id)}>
+              <Trash2 className="h-4 w-4 text-danger" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </article>
   );
 }

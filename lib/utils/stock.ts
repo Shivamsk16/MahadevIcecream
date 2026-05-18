@@ -23,11 +23,11 @@ export function getStockStatusLabel(status: StockStatus): string {
 export function getStockBadgeClasses(status: StockStatus): string {
   switch (status) {
     case "in_stock":
-      return "border-transparent bg-green-100 text-green-800";
+      return "border-green-200 bg-success-soft text-success dark:border-green-900/50 dark:bg-green-950/40 dark:text-green-400";
     case "low_stock":
-      return "border-transparent bg-amber-100 text-amber-800";
+      return "border-amber-200 bg-warning-soft text-warning dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-400";
     case "out_of_stock":
-      return "border-transparent bg-red-100 text-red-800";
+      return "border-red-200 bg-danger-soft text-danger dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400";
   }
 }
 

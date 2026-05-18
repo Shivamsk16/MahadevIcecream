@@ -14,7 +14,12 @@ import {
 import { AdjustStockModal } from "@/components/inventory/AdjustStockModal";
 import { getProductStockStatus } from "@/lib/utils/stock";
 import { formatDateTime } from "@/lib/utils/formatDate";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, Package, AlertTriangle, PackageX } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { MetricCard } from "@/components/shared/MetricCard";
+import { FadeIn } from "@/components/motion/FadeIn";
+import { MetricCardSkeleton } from "@/components/shared/Skeleton";
+import { cn } from "@/lib/utils";
 
 type StatusFilter = "all" | StockStatus;
 
@@ -119,215 +124,236 @@ export default function InventoryPage() {
 
   if (loading) {
     return (
-      <section className="flex justify-center py-16">
-        <LoadingSpinner />
-      </section>
+      <div className="space-y-8">
+        <PageHeader title="Inventory" description="Loading…" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <MetricCardSkeleton key={i} />
+          ))}
+        </div>
+        <div className="flex justify-center py-16">
+          <LoadingSpinner />
+        </div>
+      </div>
     );
   }
 
   const selectedProduct = products.find((p) => p.id === selectedProductId);
 
   return (
-    <section className="space-y-6">
-      <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Inventory</h1>
+    <div className="space-y-8">
+      <PageHeader
+        title="Inventory"
+        description="Track stock levels, alerts, and movement history"
+      />
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Total Products", value: counts.total, filter: "all" as const },
-          {
-            label: "In Stock",
-            value: counts.inStock,
-            filter: "in_stock" as const,
-          },
-          {
-            label: "Low Stock",
-            value: counts.lowStock,
-            filter: "low_stock" as const,
-          },
-          {
-            label: "Out of Stock",
-            value: counts.outOfStock,
-            filter: "out_of_stock" as const,
-          },
-        ].map((card) => (
-          <button
-            key={card.label}
-            type="button"
-            onClick={() => setStatusFilter(card.filter)}
-            className={`rounded-xl border bg-white p-4 text-left shadow-sm transition hover:border-brand-200 ${
-              statusFilter === card.filter ? "ring-2 ring-brand-500" : ""
-            }`}
-          >
-            <p className="text-sm text-gray-500">{card.label}</p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">{card.value}</p>
-          </button>
-        ))}
-      </section>
-
-      <section className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Input
-          placeholder="Search by product name…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm"
+        <MetricCard
+          label="Total Products"
+          value={counts.total}
+          icon={Package}
+          onClick={() => setStatusFilter("all")}
+          className={cn(statusFilter === "all" && "ring-2 ring-primary/30")}
         />
-        <select
-          className="h-10 rounded-md border border-gray-300 px-3 text-sm"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-        >
-          <option value="all">All</option>
-          <option value="in_stock">In Stock</option>
-          <option value="low_stock">Low Stock</option>
-          <option value="out_of_stock">Out of Stock</option>
-        </select>
+        <MetricCard
+          label="In Stock"
+          value={counts.inStock}
+          onClick={() => setStatusFilter("in_stock")}
+          className={cn(statusFilter === "in_stock" && "ring-2 ring-primary/30")}
+        />
+        <MetricCard
+          label="Low Stock"
+          value={counts.lowStock}
+          icon={AlertTriangle}
+          onClick={() => setStatusFilter("low_stock")}
+          className={cn(statusFilter === "low_stock" && "ring-2 ring-primary/30")}
+        />
+        <MetricCard
+          label="Out of Stock"
+          value={counts.outOfStock}
+          icon={PackageX}
+          onClick={() => setStatusFilter("out_of_stock")}
+          className={cn(
+            statusFilter === "out_of_stock" && "ring-2 ring-primary/30"
+          )}
+        />
       </section>
 
-      <section className="overflow-x-auto rounded-xl border bg-white">
-        <table className="w-full min-w-[800px] text-sm">
-          <thead>
-            <tr className="border-b bg-gray-50 text-left">
-              <th className="p-3">Image</th>
-              <th className="p-3">Product Name</th>
-              <th className="p-3">Category</th>
-              <th className="p-3">Current Stock</th>
-              <th className="p-3">Threshold</th>
-              <th className="p-3">Status</th>
-              <th className="p-3">Last Updated</th>
-              <th className="p-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((p) => (
-              <tr
-                key={p.id}
-                className={`cursor-pointer border-b hover:bg-gray-50 ${
-                  selectedProductId === p.id ? "bg-brand-50/50" : ""
-                }`}
-                onClick={() => selectProduct(p)}
-              >
-                <td className="p-3">
-                  <section className="relative h-10 w-10 overflow-hidden rounded bg-gray-100">
-                    {p.image_url ? (
-                      <Image src={p.image_url} alt="" fill className="object-cover" />
-                    ) : (
-                      <span className="flex h-full items-center justify-center">🍦</span>
-                    )}
-                  </section>
-                </td>
-                <td className="p-3 font-medium">{p.name}</td>
-                <td className="p-3">
-                  {(p.category as { name?: string })?.name ?? "—"}
-                </td>
-                <td className="p-3">
-                  <StockQuantityBadge product={p} />
-                </td>
-                <td className="p-3">{p.low_stock_threshold ?? 10}</td>
-                <td className="p-3">
-                  <StockStatusBadge product={p} />
-                </td>
-                <td className="p-3 text-gray-500">
-                  {formatDateTime(p.updated_at)}
-                </td>
-                <td className="p-3">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setAdjustProduct(p);
-                    }}
-                  >
-                    Adjust Stock
-                  </Button>
-                </td>
+      <FadeIn className="sticky top-16 z-20 -mx-1 rounded-2xl border border-neutral-200 bg-surface/95 p-4 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/95">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative flex-1 sm:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <Input
+              placeholder="Search products…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <select
+            className="form-input h-11 w-full sm:w-auto sm:min-w-[160px]"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            aria-label="Filter by stock status"
+          >
+            <option value="all">All statuses</option>
+            <option value="in_stock">In Stock</option>
+            <option value="low_stock">Low Stock</option>
+            <option value="out_of_stock">Out of Stock</option>
+          </select>
+        </div>
+      </FadeIn>
+
+      <div className="table-container">
+        <div className="max-h-[560px] overflow-auto">
+          <table className="data-table min-w-[800px]">
+            <thead>
+              <tr>
+                <th>Image</th>
+                <th>Product</th>
+                <th>Category</th>
+                <th>Stock</th>
+                <th>Threshold</th>
+                <th>Status</th>
+                <th>Updated</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map((p) => (
+                <tr
+                  key={p.id}
+                  className={cn(
+                    "cursor-pointer",
+                    selectedProductId === p.id && "bg-primary-soft/40"
+                  )}
+                  onClick={() => selectProduct(p)}
+                >
+                  <td>
+                    <div className="relative h-10 w-10 overflow-hidden rounded-lg bg-surface-secondary">
+                      {p.image_url ? (
+                        <Image
+                          src={p.image_url}
+                          alt=""
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-full items-center justify-center text-lg">
+                          🍦
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="font-medium text-heading">{p.name}</td>
+                  <td className="text-muted">
+                    {(p.category as { name?: string })?.name ?? "—"}
+                  </td>
+                  <td>
+                    <StockQuantityBadge product={p} />
+                  </td>
+                  <td className="tabular-nums text-muted">
+                    {p.low_stock_threshold ?? 10}
+                  </td>
+                  <td>
+                    <StockStatusBadge product={p} />
+                  </td>
+                  <td className="text-muted">
+                    {formatDateTime(p.updated_at)}
+                  </td>
+                  <td>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAdjustProduct(p);
+                      }}
+                    >
+                      Adjust
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         {filtered.length === 0 && (
-          <p className="p-8 text-center text-gray-400">No products match your filters</p>
+          <p className="p-12 text-center text-sm text-muted">
+            No products match your filters
+          </p>
         )}
-      </section>
+      </div>
 
       {selectedProduct && (
-        <article className="rounded-xl border bg-white">
+        <FadeIn className="dashboard-card overflow-hidden">
           <button
             type="button"
-            className="flex w-full items-center justify-between border-b p-4 text-left font-semibold"
+            className="flex w-full items-center justify-between border-b border-neutral-200 px-6 py-4 text-left"
             onClick={() => setHistoryOpen((o) => !o)}
           >
-            <span>
-              Stock History — {selectedProduct.name}
+            <span className="font-semibold text-heading">
+              Stock history — {selectedProduct.name}
             </span>
             {historyOpen ? (
-              <ChevronUp className="h-5 w-5 text-gray-400" />
+              <ChevronUp className="h-5 w-5 text-muted" />
             ) : (
-              <ChevronDown className="h-5 w-5 text-gray-400" />
+              <ChevronDown className="h-5 w-5 text-muted" />
             )}
           </button>
           {historyOpen && (
-            <section className="overflow-x-auto">
+            <div className="max-h-80 overflow-auto p-2">
               {logsLoading ? (
-                <section className="flex justify-center p-8">
+                <div className="flex justify-center py-12">
                   <LoadingSpinner />
-                </section>
+                </div>
               ) : stockLogs.length === 0 ? (
-                <p className="p-8 text-center text-gray-400">No stock movements yet</p>
+                <p className="py-12 text-center text-sm text-muted">
+                  No stock movements yet
+                </p>
               ) : (
-                <table className="w-full min-w-[700px] text-sm">
-                  <thead>
-                    <tr className="border-b bg-gray-50 text-left">
-                      <th className="p-3">Date/Time</th>
-                      <th className="p-3">Change Type</th>
-                      <th className="p-3">Qty Before</th>
-                      <th className="p-3">Change</th>
-                      <th className="p-3">Qty After</th>
-                      <th className="p-3">Order #</th>
-                      <th className="p-3">Note</th>
-                      <th className="p-3">Changed By</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stockLogs.map((log) => (
-                      <tr key={log.id} className="border-b">
-                        <td className="p-3">{formatDateTime(log.created_at)}</td>
-                        <td className="p-3">
+                <ul className="space-y-0 divide-y divide-neutral-100">
+                  {stockLogs.map((log) => (
+                    <li
+                      key={log.id}
+                      className="flex flex-col gap-2 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-heading">
                           {CHANGE_LABELS[log.change_type] ?? log.change_type}
-                        </td>
-                        <td className="p-3">{log.quantity_before}</td>
-                        <td className="p-3">
-                          <span
-                            className={
-                              log.quantity_change >= 0
-                                ? "text-green-600"
-                                : "text-red-600"
-                            }
-                          >
-                            {log.quantity_change >= 0 ? "+" : ""}
-                            {log.quantity_change}
-                          </span>
-                        </td>
-                        <td className="p-3">{log.quantity_after}</td>
-                        <td className="p-3">
-                          {(log.order as { order_number?: string })?.order_number ??
-                            "—"}
-                        </td>
-                        <td className="p-3 max-w-[160px] truncate">
-                          {log.note ?? "—"}
-                        </td>
-                        <td className="p-3">
-                          {(log.changer as { full_name?: string })?.full_name ??
-                            "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </p>
+                        <p className="text-xs text-muted">
+                          {formatDateTime(log.created_at)}
+                          {(log.changer as { full_name?: string })?.full_name &&
+                            ` · ${(log.changer as { full_name?: string }).full_name}`}
+                        </p>
+                        {log.note && (
+                          <p className="mt-1 text-xs text-muted">{log.note}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 text-sm tabular-nums">
+                        <span className="text-muted">
+                          {log.quantity_before} → {log.quantity_after}
+                        </span>
+                        <span
+                          className={cn(
+                            "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                            log.quantity_change >= 0
+                              ? "bg-success-soft text-success"
+                              : "bg-danger-soft text-danger"
+                          )}
+                        >
+                          {log.quantity_change >= 0 ? "+" : ""}
+                          {log.quantity_change}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               )}
-            </section>
+            </div>
           )}
-        </article>
+        </FadeIn>
       )}
 
       <AdjustStockModal
@@ -339,6 +365,6 @@ export default function InventoryPage() {
           if (selectedProductId) loadStockLogs(selectedProductId);
         }}
       />
-    </section>
+    </div>
   );
 }

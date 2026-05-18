@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { DashboardMetrics, Order, Product } from "@/lib/types";
@@ -8,31 +9,58 @@ import { formatDateTime } from "@/lib/utils/formatDate";
 import { OrderStatusBadge } from "@/components/shared/OrderStatusBadge";
 import { updateOrderStatus } from "@/lib/actions/order.actions";
 import Link from "next/link";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
 import { startOfDay, subDays, format } from "date-fns";
 import { toast } from "sonner";
 import { AdjustStockModal } from "@/components/inventory/AdjustStockModal";
 import { getProductStockStatus } from "@/lib/utils/stock";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { MetricCard } from "@/components/shared/MetricCard";
+import { FadeIn } from "@/components/motion/FadeIn";
+import { MetricCardSkeleton } from "@/components/shared/Skeleton";
+import {
+  ShoppingBag,
+  IndianRupee,
+  Clock,
+  Truck,
+  AlertTriangle,
+  PackageX,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-const COLORS = ["#E53935", "#FF9800", "#4CAF50", "#2196F3", "#9C27B0"];
+const OrdersBarChart = dynamic(
+  () =>
+    import("@/components/dashboard/DashboardCharts").then(
+      (m) => m.OrdersBarChart
+    ),
+  { ssr: false, loading: () => <ChartSkeleton /> }
+);
+
+const StatusPieChart = dynamic(
+  () =>
+    import("@/components/dashboard/DashboardCharts").then(
+      (m) => m.StatusPieChart
+    ),
+  { ssr: false, loading: () => <ChartSkeleton /> }
+);
+
+function ChartSkeleton() {
+  return (
+    <div className="flex h-[240px] items-center justify-center rounded-xl bg-surface-secondary dark:bg-zinc-800/50">
+      <div className="h-8 w-8 animate-pulse rounded-full bg-neutral-200 dark:bg-zinc-700" />
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [chartData, setChartData] = useState<{ day: string; orders: number }[]>([]);
+  const [chartData, setChartData] = useState<{ day: string; orders: number }[]>(
+    []
+  );
   const [outOfStockProducts, setOutOfStockProducts] = useState<Product[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
 
   async function fetchInventoryAlerts() {
     const supabase = createClient();
@@ -76,7 +104,11 @@ export default function DashboardPage() {
 
     const last7 = Array.from({ length: 7 }, (_, i) => {
       const d = subDays(new Date(), 6 - i);
-      return { day: format(d, "EEE"), date: format(d, "yyyy-MM-dd"), orders: 0 };
+      return {
+        day: format(d, "EEE"),
+        date: format(d, "yyyy-MM-dd"),
+        orders: 0,
+      };
     });
 
     const weekStart = subDays(new Date(), 6).toISOString();
@@ -92,6 +124,7 @@ export default function DashboardPage() {
     });
 
     setChartData(last7.map(({ day, orders }) => ({ day, orders })));
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -138,200 +171,248 @@ export default function DashboardPage() {
       ].filter((d) => d.value > 0)
     : [];
 
-  return (
-    <section className="space-y-6">
-      <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Sales Dashboard</h1>
+  const todayLabel = format(new Date(), "EEEE, MMMM d");
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Total Orders", value: metrics?.total_orders ?? 0, sub: "Today" },
-          {
-            label: "Total Value",
-            value: formatCurrency(metrics?.total_order_value ?? 0),
-            sub: "Today",
-          },
-          {
-            label: "Pending Orders",
-            value: metrics?.pending_orders ?? 0,
-            sub: "Action needed",
-          },
-          {
-            label: "Delivered",
-            value: metrics?.delivered_orders ?? 0,
-            sub: "Today",
-          },
-        ].map((card) => (
-          <article
-            key={card.label}
-            className="rounded-xl border bg-white p-4 shadow-sm"
-          >
-            <p className="text-sm text-gray-500">{card.label}</p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">{card.value}</p>
-            <p className="text-xs text-gray-400">{card.sub}</p>
-          </article>
-        ))}
+  return (
+    <div className="space-y-8">
+      <PageHeader
+        title="Dashboard"
+        description={`Today's overview · ${todayLabel}`}
+      >
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/admin/orders">View all orders</Link>
+        </Button>
+      </PageHeader>
+
+      <FadeIn>
+        <div className="dashboard-card bg-gradient-to-br from-surface to-primary-soft/30 p-6 dark:from-zinc-900 dark:to-red-950/20 sm:p-8">
+          <p className="section-label">Welcome back</p>
+          <h2 className="mt-1 text-2xl font-semibold text-heading sm:text-3xl">
+            {metrics?.pending_orders
+              ? `${metrics.pending_orders} orders need your attention`
+              : "All caught up for today"}
+          </h2>
+          <p className="mt-2 text-sm text-muted">
+            Revenue today:{" "}
+            <span className="font-semibold text-heading">
+              {formatCurrency(metrics?.total_order_value ?? 0)}
+            </span>
+            {metrics?.pending_order_value ? (
+              <>
+                {" "}
+                · Pending value:{" "}
+                <span className="font-medium text-warning">
+                  {formatCurrency(metrics.pending_order_value)}
+                </span>
+              </>
+            ) : null}
+          </p>
+        </div>
+      </FadeIn>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <MetricCardSkeleton key={i} />
+          ))
+        ) : (
+          <>
+            <MetricCard
+              label="Total Orders"
+              value={metrics?.total_orders ?? 0}
+              sub="Today"
+              icon={ShoppingBag}
+              delay={0}
+            />
+            <MetricCard
+              label="Total Value"
+              value={formatCurrency(metrics?.total_order_value ?? 0)}
+              sub="Today"
+              icon={IndianRupee}
+              delay={0.05}
+            />
+            <MetricCard
+              label="Pending"
+              value={metrics?.pending_orders ?? 0}
+              sub="Action needed"
+              icon={Clock}
+              trend={metrics?.pending_orders ? "up" : "neutral"}
+              delay={0.1}
+            />
+            <MetricCard
+              label="Delivered"
+              value={metrics?.delivered_orders ?? 0}
+              sub="Today"
+              icon={Truck}
+              trend="up"
+              delay={0.15}
+            />
+          </>
+        )}
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <article className="rounded-xl border bg-white p-4">
-          <h2 className="mb-4 font-semibold">Orders (Last 7 Days)</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={chartData}>
-              <XAxis dataKey="day" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Bar dataKey="orders" fill="#E53935" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </article>
-        <article className="rounded-xl border bg-white p-4">
-          <h2 className="mb-4 font-semibold">Today by Status</h2>
-          {pieData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                  {pieData.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="py-16 text-center text-gray-400">No orders today</p>
-          )}
-        </article>
+        <FadeIn delay={0.1} className="dashboard-card p-6">
+          <h2 className="card-title">Orders (Last 7 Days)</h2>
+          <div className="mt-4">
+            <OrdersBarChart data={chartData} />
+          </div>
+        </FadeIn>
+        <FadeIn delay={0.15} className="dashboard-card p-6">
+          <h2 className="card-title">Today by Status</h2>
+          <div className="mt-4">
+            {pieData.length > 0 ? (
+              <StatusPieChart data={pieData} />
+            ) : (
+              <p className="flex h-[240px] items-center justify-center text-sm text-muted">
+                No orders today
+              </p>
+            )}
+          </div>
+        </FadeIn>
       </section>
 
-      <article className="rounded-xl border bg-white">
-        <h2 className="border-b p-4 font-semibold">Recent Orders</h2>
-        <section className="overflow-x-auto">
-          <table className="w-full min-w-[600px] text-sm">
-            <thead>
-              <tr className="border-b bg-gray-50 text-left">
-                <th className="p-3">Order #</th>
-                <th className="p-3">Customer</th>
-                <th className="p-3">Amount</th>
-                <th className="p-3">Status</th>
-                <th className="p-3">Time</th>
-                <th className="p-3">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentOrders.map((order) => (
-                <tr key={order.id} className="border-b hover:bg-gray-50">
-                  <td className="p-3">
-                    <Link
-                      href={`/admin/orders/${order.id}`}
-                      className="text-brand-600 hover:underline"
-                    >
-                      {order.order_number}
-                    </Link>
-                  </td>
-                  <td className="p-3">
-                    {(order.customer as { full_name?: string })?.full_name ?? "—"}
-                  </td>
-                  <td className="p-3">{formatCurrency(order.net_amount)}</td>
-                  <td className="p-3">
-                    <OrderStatusBadge status={order.status} />
-                  </td>
-                  <td className="p-3">{formatDateTime(order.placed_at)}</td>
-                  <td className="p-3">
-                    <select
-                      className="rounded border px-2 py-1 text-xs"
-                      value={order.status}
-                      onChange={(e) =>
-                        handleStatusChange(
-                          order.id,
-                          e.target.value as Order["status"]
-                        )
-                      }
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="confirmed">Confirmed</option>
-                      <option value="delivered">Delivered</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
-                  </td>
+      <FadeIn delay={0.2}>
+        <div className="table-container">
+          <div className="border-b border-neutral-200 px-6 py-4">
+            <h2 className="section-title text-base">Recent Orders</h2>
+          </div>
+          <div className="max-h-[420px] overflow-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Order #</th>
+                  <th>Customer</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Time</th>
+                  <th>Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {recentOrders.length === 0 && (
-            <p className="p-8 text-center text-gray-400">No orders today</p>
-          )}
-        </section>
-      </article>
+              </thead>
+              <tbody>
+                {recentOrders.map((order) => (
+                  <tr key={order.id}>
+                    <td>
+                      <Link
+                        href={`/admin/orders/${order.id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {order.order_number}
+                      </Link>
+                    </td>
+                    <td>
+                      {(order.customer as { full_name?: string })?.full_name ??
+                        "—"}
+                    </td>
+                    <td className="font-medium tabular-nums">
+                      {formatCurrency(order.net_amount)}
+                    </td>
+                    <td>
+                      <OrderStatusBadge status={order.status} />
+                    </td>
+                    <td className="text-muted">
+                      {formatDateTime(order.placed_at)}
+                    </td>
+                    <td>
+                      <select
+                        className="form-input h-9 min-w-[120px] py-1 text-xs"
+                        value={order.status}
+                        onChange={(e) =>
+                          handleStatusChange(
+                            order.id,
+                            e.target.value as Order["status"]
+                          )
+                        }
+                        aria-label={`Update status for ${order.order_number}`}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {recentOrders.length === 0 && (
+              <p className="p-12 text-center text-sm text-muted">
+                No orders today
+              </p>
+            )}
+          </div>
+        </div>
+      </FadeIn>
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900">Inventory Alerts</h2>
-        <section className="grid gap-4 lg:grid-cols-2">
-          <article className="rounded-xl border bg-white">
-            <h3 className="border-b p-4 font-semibold text-red-700">Out of Stock</h3>
-            <section className="divide-y">
+        <h2 className="section-title">Inventory Alerts</h2>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <FadeIn delay={0.1} className="alert-card-danger">
+            <div className="flex items-center gap-2 border-b border-neutral-100 px-5 py-4 dark:border-zinc-800">
+              <PackageX className="h-4 w-4 text-danger" />
+              <h3 className="font-semibold text-heading">Out of Stock</h3>
+            </div>
+            <div className="divide-y divide-neutral-100 dark:divide-zinc-800">
               {outOfStockProducts.length === 0 ? (
-                <p className="p-4 text-sm text-green-600">
-                  All products are in stock ✓
+                <p className="p-5 text-sm text-success">
+                  All products are in stock
                 </p>
               ) : (
                 outOfStockProducts.map((p) => (
-                  <section
+                  <div
                     key={p.id}
-                    className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <section>
-                      <p className="font-medium">{p.name}</p>
-                      <p className="text-xs text-gray-500">
+                    <div>
+                      <p className="font-medium text-heading">{p.name}</p>
+                      <p className="text-xs text-muted">
                         {(p.category as { name?: string })?.name ?? "—"}
                       </p>
-                    </section>
-                    <button
-                      type="button"
-                      className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
-                      onClick={() => setAdjustProduct(p)}
-                    >
+                    </div>
+                    <Button size="sm" onClick={() => setAdjustProduct(p)}>
                       Restock Now
-                    </button>
-                  </section>
+                    </Button>
+                  </div>
                 ))
               )}
-            </section>
-          </article>
+            </div>
+          </FadeIn>
 
-          <article className="rounded-xl border bg-white">
-            <h3 className="border-b p-4 font-semibold text-amber-700">Low Stock</h3>
-            <section className="divide-y">
+          <FadeIn delay={0.15} className="alert-card-warning">
+            <div className="flex items-center gap-2 border-b border-neutral-100 px-5 py-4 dark:border-zinc-800">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <h3 className="font-semibold text-heading">Low Stock</h3>
+            </div>
+            <div className="divide-y divide-neutral-100 dark:divide-zinc-800">
               {lowStockProducts.length === 0 ? (
-                <p className="p-4 text-sm text-green-600">
-                  No low stock alerts ✓
-                </p>
+                <p className="p-5 text-sm text-success">No low stock alerts</p>
               ) : (
                 lowStockProducts.map((p) => (
-                  <section
+                  <div
                     key={p.id}
-                    className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <section>
-                      <p className="font-medium">{p.name}</p>
-                      <p className="text-xs text-gray-500">
+                    <div>
+                      <p className="font-medium text-heading">{p.name}</p>
+                      <p className="text-xs text-muted">
                         {(p.category as { name?: string })?.name ?? "—"} ·{" "}
                         {p.stock_quantity} left (threshold:{" "}
                         {p.low_stock_threshold ?? 10})
                       </p>
-                    </section>
-                    <button
-                      type="button"
-                      className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() => setAdjustProduct(p)}
                     >
                       Adjust
-                    </button>
-                  </section>
+                    </Button>
+                  </div>
                 ))
               )}
-            </section>
-          </article>
-        </section>
+            </div>
+          </FadeIn>
+        </div>
       </section>
 
       <AdjustStockModal
@@ -344,6 +425,6 @@ export default function DashboardPage() {
           fetchInventoryAlerts();
         }}
       />
-    </section>
+    </div>
   );
 }

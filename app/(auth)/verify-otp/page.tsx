@@ -5,8 +5,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { toast } from "sonner";
+import { FadeIn } from "@/components/motion/FadeIn";
+import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 
 function VerifyOtpForm() {
   const router = useRouter();
@@ -72,38 +80,49 @@ function VerifyOtpForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="text-center">
-        <CardTitle>Verify OTP</CardTitle>
-        <p className="text-sm text-gray-500">Sent to {masked}</p>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Input
-          placeholder="6-digit OTP"
-          maxLength={6}
-          value={otp}
-          onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-          className="text-center text-2xl tracking-widest"
-        />
-        <Button className="w-full" onClick={verify} disabled={loading}>
-          {loading ? "Verifying..." : "Verify"}
-        </Button>
-        <Button
-          variant="ghost"
-          className="w-full"
-          disabled={countdown > 0}
-          onClick={resend}
-        >
-          {countdown > 0 ? `Resend in ${countdown}s` : "Resend OTP"}
-        </Button>
-      </CardContent>
-    </Card>
+    <FadeIn className="w-full max-w-md">
+      <Card className="glass-panel border-neutral-200/80 shadow-lift">
+        <CardHeader className="text-center">
+          <CardTitle>Verify OTP</CardTitle>
+          <CardDescription>Code sent to {masked}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <Input
+            placeholder="000000"
+            maxLength={6}
+            value={otp}
+            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+            className="h-14 text-center text-2xl tracking-[0.5em]"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            aria-label="One-time password"
+          />
+          <Button className="w-full" onClick={verify} disabled={loading}>
+            {loading ? "Verifying…" : "Verify & continue"}
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full"
+            disabled={countdown > 0}
+            onClick={resend}
+          >
+            {countdown > 0 ? `Resend in ${countdown}s` : "Resend OTP"}
+          </Button>
+        </CardContent>
+      </Card>
+    </FadeIn>
   );
 }
 
 export default function VerifyOtpPage() {
   return (
-    <Suspense fallback={<p className="text-white">Loading...</p>}>
+    <Suspense
+      fallback={
+        <div className="flex justify-center">
+          <LoadingSpinner />
+        </div>
+      }
+    >
       <VerifyOtpForm />
     </Suspense>
   );

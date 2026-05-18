@@ -9,6 +9,8 @@ import { formatCurrency } from "@/lib/utils/formatCurrency";
 import { formatDateTime } from "@/lib/utils/formatDate";
 import { updateOrderStatus } from "@/lib/actions/order.actions";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
 export default function AdminOrdersPage() {
@@ -64,18 +66,18 @@ export default function AdminOrdersPage() {
   }
 
   return (
-    <section className="space-y-4">
-      <h1 className="text-xl font-bold sm:text-2xl">Orders</h1>
+    <section className="space-y-8">
+      <PageHeader title="Orders" description="Manage and update order status" />
 
       <section className="flex flex-col gap-3 sm:flex-row">
-        <input
-          className="w-full rounded-md border px-3 py-2 text-sm"
-          placeholder="Search order or customer..."
+        <Input
+          placeholder="Search order or customer…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          className="sm:max-w-sm"
         />
         <select
-          className="w-full rounded-md border px-3 py-2 text-sm sm:w-auto"
+          className="form-input h-11 w-full sm:w-auto"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as OrderStatus | "all")}
         >
@@ -89,24 +91,24 @@ export default function AdminOrdersPage() {
 
       <section className="space-y-3 md:hidden">
         {filtered.map((order) => (
-          <article key={order.id} className="rounded-xl border bg-white p-4">
+          <article key={order.id} className="dashboard-card p-4">
             <section className="flex items-start justify-between gap-2">
               <Link
                 href={`/admin/orders/${order.id}`}
-                className="font-medium text-brand-600"
+                className="font-medium text-primary"
               >
                 {order.order_number}
               </Link>
               <OrderStatusBadge status={order.status} />
             </section>
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="mt-1 text-sm text-muted">
               {(order.customer as { full_name?: string })?.full_name ?? "—"}
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted">
               {formatDateTime(order.placed_at)} · {formatCurrency(order.net_amount)}
             </p>
             <select
-              className="mt-3 w-full rounded-md border px-3 py-2 text-sm"
+              className="form-input mt-3 h-10 text-sm"
               value={order.status}
               onChange={(e) =>
                 handleStatus(order.id, e.target.value as OrderStatus)
@@ -121,40 +123,41 @@ export default function AdminOrdersPage() {
         ))}
       </section>
 
-      <section className="hidden overflow-x-auto rounded-xl border bg-white md:block">
-        <table className="w-full min-w-[640px] text-sm">
+      <div className="table-container hidden md:block">
+        <div className="overflow-x-auto">
+        <table className="data-table min-w-[640px]">
           <thead>
-            <tr className="border-b bg-gray-50 text-left">
-              <th className="p-3">Order #</th>
-              <th className="p-3">Customer</th>
-              <th className="p-3">Date</th>
-              <th className="p-3">Amount</th>
-              <th className="p-3">Status</th>
-              <th className="p-3">Action</th>
+            <tr>
+              <th>Order #</th>
+              <th>Customer</th>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((order) => (
-              <tr key={order.id} className="border-b">
-                <td className="p-3">
+              <tr key={order.id}>
+                <td>
                   <Link
                     href={`/admin/orders/${order.id}`}
-                    className="text-brand-600 hover:underline"
+                    className="font-medium text-primary hover:underline"
                   >
                     {order.order_number}
                   </Link>
                 </td>
-                <td className="p-3">
+                <td>
                   {(order.customer as { full_name?: string })?.full_name ?? "—"}
                 </td>
-                <td className="p-3">{formatDateTime(order.placed_at)}</td>
-                <td className="p-3">{formatCurrency(order.net_amount)}</td>
-                <td className="p-3">
+                <td>{formatDateTime(order.placed_at)}</td>
+                <td className="font-medium tabular-nums">{formatCurrency(order.net_amount)}</td>
+                <td>
                   <OrderStatusBadge status={order.status} />
                 </td>
-                <td className="p-3">
+                <td>
                   <select
-                    className="rounded border px-2 py-1 text-xs"
+                    className="form-input h-9 min-w-[120px] py-1 text-xs"
                     value={order.status}
                     onChange={(e) =>
                       handleStatus(order.id, e.target.value as OrderStatus)
@@ -170,7 +173,8 @@ export default function AdminOrdersPage() {
             ))}
           </tbody>
         </table>
-      </section>
+        </div>
+      </div>
     </section>
   );
 }
