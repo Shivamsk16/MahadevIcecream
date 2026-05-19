@@ -22,6 +22,11 @@ import { MetricCardSkeleton } from "@/components/shared/Skeleton";
 import { cn } from "@/lib/utils";
 
 type StatusFilter = "all" | StockStatus;
+type StockSort = "default" | "low_to_high" | "high_to_low" | "recently_updated";
+
+function getCategoryName(p: Product) {
+  return (p.category as { name?: string })?.name ?? "";
+}
 
 const CHANGE_LABELS: Record<string, string> = {
   manual_add: "Manual Add",
@@ -35,6 +40,8 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [stockSort, setStockSort] = useState<StockSort>("default");
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [stockLogs, setStockLogs] = useState<StockLog[]>([]);
@@ -85,17 +92,54 @@ export default function InventoryPage() {
     };
   }, [products]);
 
+  const categoryOptions = useMemo(() => {
+    const names = new Set<string>();
+    products.forEach((p) => {
+      const name = getCategoryName(p);
+      if (name) names.add(name);
+    });
+    return Array.from(names).sort();
+  }, [products]);
+
+  const hasActiveFilters =
+    search.trim() !== "" ||
+    statusFilter !== "all" ||
+    categoryFilter !== "all" ||
+    stockSort !== "default";
+
+  function clearFilters() {
+    setSearch("");
+    setStatusFilter("all");
+    setCategoryFilter("all");
+    setStockSort("default");
+  }
+
   const filtered = useMemo(() => {
-    return products.filter((p) => {
+    let list = products.filter((p) => {
       const matchesSearch = p.name
         .toLowerCase()
         .includes(search.toLowerCase());
       const status = getProductStockStatus(p);
       const matchesStatus =
         statusFilter === "all" || status === statusFilter;
-      return matchesSearch && matchesStatus;
+      const matchesCategory =
+        categoryFilter === "all" || getCategoryName(p) === categoryFilter;
+      return matchesSearch && matchesStatus && matchesCategory;
     });
-  }, [products, search, statusFilter]);
+
+    if (stockSort === "low_to_high") {
+      list = [...list].sort((a, b) => a.stock_quantity - b.stock_quantity);
+    } else if (stockSort === "high_to_low") {
+      list = [...list].sort((a, b) => b.stock_quantity - a.stock_quantity);
+    } else if (stockSort === "recently_updated") {
+      list = [...list].sort(
+        (a, b) =>
+          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      );
+    }
+
+    return list;
+  }, [products, search, statusFilter, categoryFilter, stockSort]);
 
   async function loadStockLogs(productId: string) {
     setLogsLoading(true);
@@ -201,6 +245,39 @@ export default function InventoryPage() {
             <option value="low_stock">Low Stock</option>
             <option value="out_of_stock">Out of Stock</option>
           </select>
+          <select
+            className="form-input h-11 w-full sm:w-auto sm:min-w-[160px]"
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            aria-label="Filter by category"
+          >
+            <option value="all">All Categories</option>
+            {categoryOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-input h-11 w-full sm:w-auto sm:min-w-[180px]"
+            value={stockSort}
+            onChange={(e) => setStockSort(e.target.value as StockSort)}
+            aria-label="Sort by stock"
+          >
+            <option value="default">Sort: Default</option>
+            <option value="low_to_high">Stock: Low to High</option>
+            <option value="high_to_low">Stock: High to Low</option>
+            <option value="recently_updated">Recently Updated</option>
+          </select>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Clear Filters
+            </button>
+          )}
         </div>
       </FadeIn>
 
@@ -280,7 +357,14 @@ export default function InventoryPage() {
         </div>
         {filtered.length === 0 && (
           <p className="p-12 text-center text-sm text-muted">
-            No products match your filters
+            No products match your filters.{" "}
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="font-medium text-primary hover:underline"
+            >
+              Clear Filters
+            </button>
           </p>
         )}
       </div>

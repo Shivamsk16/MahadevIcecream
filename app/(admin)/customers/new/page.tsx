@@ -92,7 +92,7 @@ export default function NewCustomerPage() {
       <h1 className="text-xl font-bold sm:text-2xl">Add Customer</h1>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="w-full max-w-lg space-y-4 rounded-xl border bg-white p-4 sm:p-6"
+        className="mx-auto mt-8 w-full max-w-2xl space-y-4 rounded-xl border bg-white p-4 sm:p-6"
       >
         <section>
           <Label>Full Name *</Label>

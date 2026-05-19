@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { Product } from "@/lib/types";
+import { Category, Product } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -14,7 +14,16 @@ import {
 import { formatCurrency } from "@/lib/utils/formatCurrency";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus, PackagePlus, LayoutGrid, List } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  Plus,
+  PackagePlus,
+  LayoutGrid,
+  List,
+  Search,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
 import {
   StockQuantityBadge,
   StockStatusBadge,
@@ -25,21 +34,78 @@ import { FadeIn } from "@/components/motion/FadeIn";
 import { cn } from "@/lib/utils";
 import { getProductStockStatus } from "@/lib/utils/stock";
 
+type DemandSort = "default" | "high_to_low" | "low_to_high";
+type AvailabilityFilter = "all" | "available" | "hidden";
+
+function getCategoryName(p: Product) {
+  return (p.category as { name?: string })?.name ?? "";
+}
+
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
   const [view, setView] = useState<"table" | "cards">("table");
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [demandSort, setDemandSort] = useState<DemandSort>("default");
+  const [availabilityFilter, setAvailabilityFilter] =
+    useState<AvailabilityFilter>("all");
 
   async function load() {
     const supabase = createClient();
-    const { data } = await supabase
-      .from("products")
-      .select("*, category:categories(name)")
-      .order("name");
+    const [{ data }, { data: cats }] = await Promise.all([
+      supabase
+        .from("products")
+        .select("*, category:categories(name)")
+        .order("name"),
+      supabase
+        .from("categories")
+        .select("*")
+        .eq("is_active", true)
+        .order("display_order"),
+    ]);
     setProducts((data as Product[]) ?? []);
+    setCategories((cats as Category[]) ?? []);
     setLoading(false);
   }
+
+  const hasActiveFilters =
+    search.trim() !== "" ||
+    categoryFilter !== "all" ||
+    demandSort !== "default" ||
+    availabilityFilter !== "all";
+
+  function clearFilters() {
+    setSearch("");
+    setCategoryFilter("all");
+    setDemandSort("default");
+    setAvailabilityFilter("all");
+  }
+
+  const filteredProducts = useMemo(() => {
+    let list = products.filter((p) => {
+      const q = search.trim().toLowerCase();
+      const matchesSearch = !q || p.name.toLowerCase().includes(q);
+      const catName = getCategoryName(p);
+      const matchesCategory =
+        categoryFilter === "all" || catName === categoryFilter;
+      const matchesAvailability =
+        availabilityFilter === "all" ||
+        (availabilityFilter === "available" && p.is_available) ||
+        (availabilityFilter === "hidden" && !p.is_available);
+      return matchesSearch && matchesCategory && matchesAvailability;
+    });
+
+    if (demandSort === "high_to_low") {
+      list = [...list].sort((a, b) => a.stock_quantity - b.stock_quantity);
+    } else if (demandSort === "low_to_high") {
+      list = [...list].sort((a, b) => b.stock_quantity - a.stock_quantity);
+    }
+
+    return list;
+  }, [products, search, categoryFilter, demandSort, availabilityFilter]);
 
   useEffect(() => {
     load();
@@ -114,33 +180,115 @@ export default function AdminProductsPage() {
         </div>
       </PageHeader>
 
+      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+        <div className="relative flex-1 lg:min-w-[200px] lg:max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <Input
+            placeholder="Search by product name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <select
+          className="form-input h-11 w-full lg:w-auto lg:min-w-[160px]"
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          aria-label="Filter by category"
+        >
+          <option value="all">All Categories</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.name}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <select
+          className="form-input h-11 w-full lg:w-auto lg:min-w-[160px]"
+          value={demandSort}
+          onChange={(e) => setDemandSort(e.target.value as DemandSort)}
+          aria-label="Sort by demand"
+        >
+          <option value="default">Sort by Demand</option>
+          <option value="high_to_low">High to Low Demand</option>
+          <option value="low_to_high">Low to High Demand</option>
+        </select>
+        <select
+          className="form-input h-11 w-full lg:w-auto lg:min-w-[160px]"
+          value={availabilityFilter}
+          onChange={(e) =>
+            setAvailabilityFilter(e.target.value as AvailabilityFilter)
+          }
+          aria-label="Filter by availability"
+        >
+          <option value="all">All Products</option>
+          <option value="available">Available Only</option>
+          <option value="hidden">Hidden Only</option>
+        </select>
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            Clear Filters
+          </button>
+        )}
+      </div>
+
       {/* Mobile cards */}
       <section className="space-y-3 md:hidden">
-        {products.map((p, i) => (
-          <FadeIn key={p.id} delay={i * 0.03}>
-            <ProductAdminCard
-              product={p}
-              onToggle={toggle}
-              onRemove={remove}
-              onAdjust={() => setAdjustProduct(p)}
-            />
-          </FadeIn>
-        ))}
-      </section>
-
-      {view === "cards" && (
-        <section className="hidden gap-4 sm:grid-cols-2 lg:grid-cols-3 md:grid">
-          {products.map((p, i) => (
+        {filteredProducts.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-neutral-200 p-6 text-center text-sm text-muted">
+            No products match your filters.{" "}
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="font-medium text-primary hover:underline"
+            >
+              Clear Filters
+            </button>
+          </p>
+        ) : (
+          filteredProducts.map((p, i) => (
             <FadeIn key={p.id} delay={i * 0.03}>
               <ProductAdminCard
                 product={p}
                 onToggle={toggle}
                 onRemove={remove}
                 onAdjust={() => setAdjustProduct(p)}
-                large
               />
             </FadeIn>
-          ))}
+          ))
+        )}
+      </section>
+
+      {view === "cards" && (
+        <section className="hidden gap-4 sm:grid-cols-2 lg:grid-cols-3 md:grid">
+          {filteredProducts.length === 0 ? (
+            <p className="col-span-full rounded-2xl border border-dashed border-neutral-200 p-6 text-center text-sm text-muted">
+              No products match your filters.{" "}
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="font-medium text-primary hover:underline"
+              >
+                Clear Filters
+              </button>
+            </p>
+          ) : (
+            filteredProducts.map((p, i) => (
+              <FadeIn key={p.id} delay={i * 0.03}>
+                <ProductAdminCard
+                  product={p}
+                  onToggle={toggle}
+                  onRemove={remove}
+                  onAdjust={() => setAdjustProduct(p)}
+                  large
+                />
+              </FadeIn>
+            ))
+          )}
         </section>
       )}
 
@@ -162,7 +310,7 @@ export default function AdminProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {products.map((p) => (
+                {filteredProducts.map((p) => (
                   <tr key={p.id}>
                     <td>
                       <ProductThumb product={p} />
@@ -214,6 +362,18 @@ export default function AdminProductsPage() {
               </tbody>
             </table>
           </div>
+          {filteredProducts.length === 0 && (
+            <p className="p-12 text-center text-sm text-muted">
+              No products match your filters.{" "}
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="font-medium text-primary hover:underline"
+              >
+                Clear Filters
+              </button>
+            </p>
+          )}
         </div>
       )}
 
