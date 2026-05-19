@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { CartItem } from "@/lib/types";
 import { revalidatePath } from "next/cache";
+import crypto from "crypto";
 
 function parseInsufficientStockError(message: string): string | null {
   const match = message.match(/INSUFFICIENT_STOCK:(.+)/);
@@ -37,21 +38,25 @@ export async function placeOrder(cartItems: CartItem[], notes?: string) {
     (sum, i) => sum + i.product.price * i.quantity,
     0
   );
+  const orderNumber = `ORD-${crypto.randomUUID()}`;
 
-  const { data: order, error: orderError } = await supabase
-    .from("orders")
-    .insert({
-      customer_id: user.id,
-      status: "pending",
-      total_amount,
-      discount_amount: 0,
-      net_amount: total_amount,
-      notes,
-    })
-    .select()
-    .single();
+const { data: order, error: orderError } = await supabase
+  .from("orders")
+  .insert({
+    order_number: orderNumber,
+    customer_id: user.id,
+    status: "pending",
+    total_amount,
+    discount_amount: 0,
+    net_amount: total_amount,
+    notes,
+  })
+  .select()
+  .single();
 
-  if (orderError) throw new Error(orderError.message);
+if (orderError) throw new Error(orderError.message);
+
+
 
   const orderItems = cartItems.map((item) => ({
     order_id: order.id,
