@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { Category } from "@/lib/types";
 import { FadeIn } from "@/components/motion/FadeIn";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Sparkles } from "lucide-react";
 
 export default function HomePage() {
   const [name, setName] = useState("Customer");
@@ -63,7 +64,40 @@ export default function HomePage() {
         </div>
       </FadeIn>
 
-      <FadeIn delay={0.05}>
+      <FadeIn delay={0.04}>
+        <Link
+          href="/products"
+          aria-label="Browse MAHADEV premium ice cream products"
+          className="group relative block overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-dark-lift"
+        >
+          <div className="relative aspect-[2/1] w-full overflow-hidden sm:aspect-[21/9]">
+            <Image
+              src="/mahadev-hero-banner.jpg"
+              alt="MAHADEV Ice Cream — Taste the Happiness in every scoop"
+              fill
+              priority
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 90vw, 1024px"
+              className="object-cover object-center transition-transform duration-500 ease-out group-hover:scale-[1.02]"
+            />
+
+            <div className="pointer-events-none absolute left-3 top-3 sm:left-4 sm:top-4">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/85 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-neutral-900 shadow-sm backdrop-blur-md ring-1 ring-black/5 dark:bg-zinc-950/70 dark:text-zinc-100 dark:ring-white/10">
+                <Sparkles className="h-3 w-3 text-red-600 dark:text-red-400" />
+                Premium Ice Cream
+              </span>
+            </div>
+
+            <div className="pointer-events-none absolute bottom-3 right-3 sm:bottom-4 sm:right-4">
+              <span className="inline-flex items-center gap-1 rounded-full bg-neutral-900/85 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm backdrop-blur-md ring-1 ring-white/10 transition-transform duration-300 group-hover:translate-x-0.5 dark:bg-white/90 dark:text-neutral-900 dark:ring-black/10">
+                Shop now
+                <ChevronRight className="h-3.5 w-3.5" />
+              </span>
+            </div>
+          </div>
+        </Link>
+      </FadeIn>
+
+      <FadeIn delay={0.08}>
         <Link
           href="/products"
           className="group flex items-center justify-between overflow-hidden rounded-2xl border border-neutral-200 bg-gradient-to-br from-neutral-900 to-neutral-800 p-6 text-white shadow-sm transition-shadow hover:shadow-card dark:border-zinc-800"

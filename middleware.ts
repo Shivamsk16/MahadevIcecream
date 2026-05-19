@@ -83,5 +83,13 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth).*)"],
+  matcher: [
+    /*
+     * Skip Next internals, favicon, auth API, and root-level static assets
+     * (e.g. /mahadev-hero-banner.jpg). Otherwise `next/image` server-side
+     * fetch hits this middleware without session cookies, gets HTML from
+     * /login, and the optimizer fails with "isn't a valid image".
+     */
+    "/((?!_next/static|_next/image|favicon.ico|api/auth|[^/]+\\.(?:ico|png|jpg|jpeg|gif|webp|svg|woff2?|ttf|eot)$).*)",
+  ],
 };
