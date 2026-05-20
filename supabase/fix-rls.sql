@@ -83,6 +83,11 @@ DROP POLICY IF EXISTS "Admins can view all order items" ON order_items;
 CREATE POLICY "Admins can view all order items" ON order_items
   FOR SELECT USING (public.is_admin());
 
+DROP POLICY IF EXISTS "Admins can update order items" ON order_items;
+
+CREATE POLICY "Admins can update order items" ON order_items
+  FOR UPDATE USING (public.is_admin()) WITH CHECK (public.is_admin());
+
 -- ---------- GRANTS ----------
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon, authenticated;

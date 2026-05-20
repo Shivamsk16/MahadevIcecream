@@ -92,6 +92,7 @@ export interface OrderItem {
   product_price: number;
   quantity: number;
   line_total: number;
+  distributor_allocation_qty?: number | null;
   product?: Product;
 }
 

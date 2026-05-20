@@ -79,20 +79,23 @@ CREATE TABLE order_items (
   product_price DECIMAL(10, 2) NOT NULL,
   quantity INT NOT NULL CHECK (quantity > 0),
   line_total DECIMAL(10, 2) NOT NULL,
+  distributor_allocation_qty INT DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE OR REPLACE FUNCTION generate_order_number()
 RETURNS TEXT AS $$
 DECLARE
-  today TEXT;
+  day_part TEXT;
+  month_part TEXT;
+  year_part TEXT;
   seq INT;
-  order_num TEXT;
 BEGIN
-  today := TO_CHAR(NOW(), 'YYYYMMDD');
+  day_part := TO_CHAR(NOW(), 'DD');
+  month_part := TO_CHAR(NOW(), 'MM');
+  year_part := TO_CHAR(NOW(), 'YYYY');
   SELECT COUNT(*) + 1 INTO seq FROM orders WHERE DATE(placed_at) = CURRENT_DATE;
-  order_num := 'ORD-' || today || '-' || LPAD(seq::TEXT, 3, '0');
-  RETURN order_num;
+  RETURN 'ORD-' || day_part || '-' || month_part || '-' || year_part || '-' || LPAD(seq::TEXT, 5, '0');
 END;
 $$ LANGUAGE plpgsql;
 
