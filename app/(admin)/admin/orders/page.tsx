@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Order, OrderStatus } from "@/lib/types";
+import { Order, OrderItem, OrderStatus } from "@/lib/types";
 import { OrderStatusBadge } from "@/components/shared/OrderStatusBadge";
 import { formatCurrency } from "@/lib/utils/formatCurrency";
 import { formatDateTime } from "@/lib/utils/formatDate";
@@ -12,6 +12,36 @@ import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+
+function getAllocatedAmountInfo(items: OrderItem[] | undefined): {
+  amount: number | null;
+  hasAllocation: boolean;
+} {
+  if (!items?.length) {
+    return { amount: null, hasAllocation: false };
+  }
+
+  const hasAllocation = items.some(
+    (item) =>
+      item.distributor_allocation_qty != null &&
+      item.distributor_allocation_qty > 0
+  );
+
+  if (!hasAllocation) {
+    return { amount: null, hasAllocation: false };
+  }
+
+  const amount = items.reduce((sum, item) => {
+    const qty =
+      item.distributor_allocation_qty != null &&
+      item.distributor_allocation_qty > 0
+        ? item.distributor_allocation_qty
+        : item.quantity;
+    return sum + qty * Number(item.product_price);
+  }, 0);
+
+  return { amount, hasAllocation: true };
+}
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -23,7 +53,9 @@ export default function AdminOrdersPage() {
     const supabase = createClient();
     let query = supabase
       .from("orders")
-      .select("*, customer:profiles(full_name, phone)")
+      .select(
+        "*, customer:profiles(full_name, phone), order_items(quantity, product_price, distributor_allocation_qty)"
+      )
       .order("placed_at", { ascending: false });
 
     if (statusFilter !== "all") {
@@ -132,12 +164,17 @@ export default function AdminOrdersPage() {
               <th>Customer</th>
               <th>Date</th>
               <th>Amount</th>
+              <th>Allocated Amt</th>
               <th>Status</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((order) => (
+            {filtered.map((order) => {
+              const { amount: allocatedAmount, hasAllocation } =
+                getAllocatedAmountInfo(order.order_items);
+
+              return (
               <tr key={order.id}>
                 <td>
                   <Link
@@ -152,6 +189,18 @@ export default function AdminOrdersPage() {
                 </td>
                 <td>{formatDateTime(order.placed_at)}</td>
                 <td className="font-medium tabular-nums">{formatCurrency(order.net_amount)}</td>
+                <td className="font-medium tabular-nums">
+                  {hasAllocation && allocatedAmount != null ? (
+                    <span className="flex flex-col">
+                      <span>{formatCurrency(allocatedAmount)}</span>
+                      <span className="text-xs font-normal text-muted">
+                        Allocated
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
+                </td>
                 <td>
                   <OrderStatusBadge status={order.status} />
                 </td>
@@ -170,7 +219,8 @@ export default function AdminOrdersPage() {
                   </select>
                 </td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
         </div>
