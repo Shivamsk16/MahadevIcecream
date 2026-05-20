@@ -95,7 +95,9 @@ export default function CartPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-semibold">Cart ({items.length} items)</h1>
+      <h1 className="text-xl font-semibold text-heading dark:text-zinc-100">
+        Cart ({items.length} items)
+      </h1>
 
       <section className="space-y-3">
         {items.map(({ product, quantity }, index) => {
@@ -103,9 +105,9 @@ export default function CartPage() {
           return (
             <article
               key={product.id}
-              className="flex gap-3 rounded-xl border bg-white p-3"
+              className="flex gap-3 rounded-xl border border-neutral-200 bg-surface p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-dark-card"
             >
-              <section className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+              <section className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-surface-secondary dark:bg-zinc-800/50">
                 {product.image_url ? (
                   <Image src={product.image_url} alt={product.name} fill className="object-cover" />
                 ) : (
@@ -113,27 +115,39 @@ export default function CartPage() {
                 )}
               </section>
               <section className="flex-1">
-                <p className="font-medium">{product.name}</p>
-                <p className="text-sm text-brand-700">
+                <p className="font-medium text-heading dark:text-zinc-100">
+                  {product.name}
+                </p>
+                <p className="text-sm text-brand-700 dark:text-red-400">
                   {formatCurrency(product.price * quantity)}
                 </p>
                 {issue?.outOfStock && (
-                  <p className="mt-1 text-sm text-red-600">
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                     This item is no longer available
                   </p>
                 )}
                 {issue?.lowStock && !issue.outOfStock && (
-                  <p className="mt-1 text-sm text-amber-600">
+                  <p className="mt-1 text-sm text-amber-600 dark:text-amber-400">
                     Only {issue.stock} left — your quantity may be adjusted
                   </p>
                 )}
                 <section className="mt-2 flex items-center justify-between">
-                  <section className="flex items-center gap-1 rounded border">
-                    <button type="button" className="p-1" onClick={() => updateQuantity(product.id, quantity - 1)}>
+                  <section className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-surface-secondary dark:border-zinc-700 dark:bg-zinc-800/50">
+                    <button
+                      type="button"
+                      className="p-1 text-heading transition-colors hover:bg-surface dark:text-zinc-100 dark:hover:bg-zinc-700"
+                      onClick={() => updateQuantity(product.id, quantity - 1)}
+                    >
                       <Minus className="h-4 w-4" />
                     </button>
-                    <span className="w-6 text-center text-sm">{quantity}</span>
-                    <button type="button" className="p-1" onClick={() => updateQuantity(product.id, quantity + 1)}>
+                    <span className="w-6 text-center text-sm text-heading dark:text-zinc-100">
+                      {quantity}
+                    </span>
+                    <button
+                      type="button"
+                      className="p-1 text-heading transition-colors hover:bg-surface dark:text-zinc-100 dark:hover:bg-zinc-700"
+                      onClick={() => updateQuantity(product.id, quantity + 1)}
+                    >
                       <Plus className="h-4 w-4" />
                     </button>
                   </section>
@@ -147,14 +161,16 @@ export default function CartPage() {
         })}
       </section>
 
-      <section className="rounded-xl border bg-white p-4">
-        <section className="flex justify-between text-sm">
+      <section className="rounded-xl border border-neutral-200 bg-surface p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-dark-card">
+        <section className="flex justify-between text-sm text-body dark:text-zinc-300">
           <span>Subtotal</span>
           <span>{formatCurrency(totalAmount())}</span>
         </section>
-        <section className="mt-2 flex justify-between border-t pt-2 font-semibold">
-          <span>Total</span>
-          <span className="text-brand-700">{formatCurrency(totalAmount())}</span>
+        <section className="mt-2 flex justify-between border-t border-neutral-200 pt-2 font-semibold dark:border-zinc-800">
+          <span className="text-heading dark:text-zinc-100">Total</span>
+          <span className="text-brand-700 dark:text-red-400">
+            {formatCurrency(totalAmount())}
+          </span>
         </section>
       </section>
 
@@ -169,7 +185,7 @@ export default function CartPage() {
         </Button>
       ) : (
         <section className="space-y-2">
-          <p className="text-center text-sm">
+          <p className="text-center text-sm text-muted dark:text-zinc-400">
             Confirm order for {formatCurrency(totalAmount())}?
           </p>
           <Button

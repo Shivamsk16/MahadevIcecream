@@ -32,19 +32,31 @@ export default function CategoriesPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-bold sm:text-2xl">Categories</h1>
+      <h1 className="text-xl font-bold text-heading dark:text-zinc-100 sm:text-2xl">
+        Categories
+      </h1>
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {categories.map((cat) => (
           <article
             key={cat.id}
-            className="flex items-center gap-3 rounded-xl border bg-white p-4"
+            className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-surface p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-dark-card"
           >
             <span className="text-3xl">{cat.icon ?? "🍦"}</span>
             <section>
-              <p className="font-medium">{cat.name}</p>
-              <p className="text-xs text-gray-500">
+              <p className="font-medium text-heading dark:text-zinc-100">
+                {cat.name}
+              </p>
+              <p className="text-xs text-muted dark:text-zinc-500">
                 Order: {cat.display_order} ·{" "}
-                {cat.is_active ? "Active" : "Inactive"}
+                <span
+                  className={
+                    cat.is_active
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  }
+                >
+                  {cat.is_active ? "Active" : "Inactive"}
+                </span>
               </p>
             </section>
           </article>

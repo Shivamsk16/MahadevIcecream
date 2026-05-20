@@ -72,10 +72,15 @@ export default function ProfilePage() {
 
   return (
     <section className="space-y-6">
-      <h1 className="text-xl font-semibold">Profile</h1>
+      <h1 className="text-xl font-semibold text-heading dark:text-zinc-100">
+        Profile
+      </h1>
 
       {editing ? (
-        <form onSubmit={save} className="space-y-4 rounded-xl border bg-white p-4">
+        <form
+          onSubmit={save}
+          className="space-y-4 rounded-xl border border-neutral-200 bg-surface p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-dark-card"
+        >
           <section>
             <Label>Business Name</Label>
             <Input
@@ -122,25 +127,38 @@ export default function ProfilePage() {
           </section>
         </form>
       ) : (
-        <section className="space-y-3 rounded-xl border bg-white p-4">
-          <p>
-            <span className="text-gray-500">Name:</span> {profile.full_name}
+        <section className="space-y-3 rounded-xl border border-neutral-200 bg-surface p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-dark-card">
+          <p className="text-body dark:text-zinc-300">
+            <span className="text-muted dark:text-zinc-500">Name:</span>{" "}
+            <span className="text-heading dark:text-zinc-100">
+              {profile.full_name}
+            </span>
           </p>
-          <p>
-            <span className="text-gray-500">Phone:</span> {profile.phone ?? "—"}
+          <p className="text-body dark:text-zinc-300">
+            <span className="text-muted dark:text-zinc-500">Phone:</span>{" "}
+            <span className="text-heading dark:text-zinc-100">
+              {profile.phone ?? "—"}
+            </span>
           </p>
-          <p>
-            <span className="text-gray-500">Email:</span> {profile.email ?? "—"}
+          <p className="text-body dark:text-zinc-300">
+            <span className="text-muted dark:text-zinc-500">Email:</span>{" "}
+            <span className="text-heading dark:text-zinc-100">
+              {profile.email ?? "—"}
+            </span>
           </p>
-          <p>
-            <span className="text-gray-500">Business:</span>{" "}
-            {profile.business_name ?? "—"}
+          <p className="text-body dark:text-zinc-300">
+            <span className="text-muted dark:text-zinc-500">Business:</span>{" "}
+            <span className="text-heading dark:text-zinc-100">
+              {profile.business_name ?? "—"}
+            </span>
           </p>
-          <p>
-            <span className="text-gray-500">Address:</span>{" "}
-            {[profile.address, profile.city, profile.pincode]
-              .filter(Boolean)
-              .join(", ") || "—"}
+          <p className="text-body dark:text-zinc-300">
+            <span className="text-muted dark:text-zinc-500">Address:</span>{" "}
+            <span className="text-heading dark:text-zinc-100">
+              {[profile.address, profile.city, profile.pincode]
+                .filter(Boolean)
+                .join(", ") || "—"}
+            </span>
           </p>
           <Button variant="outline" onClick={() => setEditing(true)}>
             Edit Profile

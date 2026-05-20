@@ -135,7 +135,9 @@ export default function CustomersPage() {
   return (
     <section className="space-y-4">
       <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-bold sm:text-2xl">Customers</h1>
+        <h1 className="text-xl font-bold text-heading dark:text-zinc-100 sm:text-2xl">
+          Customers
+        </h1>
         <Button asChild className="w-full sm:w-auto">
           <Link href="/customers/new">
             <Plus className="mr-2 h-4 w-4" />
@@ -194,7 +196,7 @@ export default function CustomersPage() {
           <button
             type="button"
             onClick={clearFilters}
-            className="text-sm font-medium text-primary hover:underline"
+            className="text-sm font-medium text-primary hover:underline dark:text-red-400"
           >
             Clear Filters
           </button>
@@ -203,31 +205,44 @@ export default function CustomersPage() {
 
       <section className="space-y-3 md:hidden">
         {filteredCustomers.length === 0 ? (
-          <p className="rounded-xl border border-dashed bg-white p-6 text-center text-sm text-gray-500">
+          <p className="rounded-xl border border-dashed border-neutral-200 bg-surface-secondary p-6 text-center text-sm text-muted dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-500">
             No customers match your filters.{" "}
             <button
               type="button"
               onClick={clearFilters}
-              className="font-medium text-primary hover:underline"
+              className="font-medium text-primary hover:underline dark:text-red-400"
             >
               Clear Filters
             </button>
           </p>
         ) : (
           filteredCustomers.map((c) => (
-            <article key={c.id} className="rounded-xl border bg-white p-4">
-              <p className="font-medium">{c.full_name}</p>
+            <article
+              key={c.id}
+              className="rounded-xl border border-neutral-200 bg-surface p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-dark-card"
+            >
+              <p className="font-medium text-heading dark:text-zinc-100">
+                {c.full_name}
+              </p>
               {c.business_name && (
-                <p className="text-sm text-gray-600">{c.business_name}</p>
+                <p className="text-sm text-muted dark:text-zinc-400">
+                  {c.business_name}
+                </p>
               )}
-              <p className="mt-2 text-sm text-gray-500">
+              <p className="mt-2 text-sm text-muted dark:text-zinc-500">
                 {c.phone ?? "—"} · {c.city ?? "—"}
               </p>
-              <section className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+              <section className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm text-body dark:text-zinc-300">
                 <span>
                   {c.order_count} orders · {formatCurrency(c.total_purchases)}
                 </span>
-                <span className={c.is_active ? "text-green-600" : "text-red-600"}>
+                <span
+                  className={
+                    c.is_active
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  }
+                >
                   {c.is_active ? "Active" : "Inactive"}
                 </span>
               </section>
@@ -236,57 +251,63 @@ export default function CustomersPage() {
         )}
       </section>
 
-      <section className="hidden overflow-x-auto rounded-xl border bg-white md:block">
-        <table className="w-full min-w-[720px] text-sm">
-          <thead>
-            <tr className="border-b bg-gray-50 text-left">
-              <th className="p-3">Name</th>
-              <th className="p-3">Business</th>
-              <th className="p-3">Phone</th>
-              <th className="p-3">City</th>
-              <th className="p-3">Orders</th>
-              <th className="p-3">Total Purchases</th>
-              <th className="p-3">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredCustomers.length === 0 ? (
+      <div className="table-container hidden md:block">
+        <div className="overflow-x-auto">
+          <table className="data-table min-w-[720px]">
+            <thead>
               <tr>
-                <td colSpan={7} className="p-12 text-center text-muted">
-                  No customers match your filters.{" "}
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="font-medium text-primary hover:underline"
-                  >
-                    Clear Filters
-                  </button>
-                </td>
+                <th>Name</th>
+                <th>Business</th>
+                <th>Phone</th>
+                <th>City</th>
+                <th>Orders</th>
+                <th>Total Purchases</th>
+                <th>Status</th>
               </tr>
-            ) : (
-              filteredCustomers.map((c) => (
-                <tr key={c.id} className="border-b">
-                  <td className="p-3 font-medium">{c.full_name}</td>
-                  <td className="p-3">{c.business_name ?? "—"}</td>
-                  <td className="p-3">{c.phone ?? "—"}</td>
-                  <td className="p-3">{c.city ?? "—"}</td>
-                  <td className="p-3">{c.order_count}</td>
-                  <td className="p-3">{formatCurrency(c.total_purchases)}</td>
-                  <td className="p-3">
-                    <span
-                      className={
-                        c.is_active ? "text-green-600" : "text-red-600"
-                      }
+            </thead>
+            <tbody>
+              {filteredCustomers.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-12 text-center text-muted">
+                    No customers match your filters.{" "}
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="font-medium text-primary hover:underline dark:text-red-400"
                     >
-                      {c.is_active ? "Active" : "Inactive"}
-                    </span>
+                      Clear Filters
+                    </button>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </section>
+              ) : (
+                filteredCustomers.map((c) => (
+                  <tr key={c.id}>
+                    <td className="font-medium text-heading">{c.full_name}</td>
+                    <td className="text-muted">{c.business_name ?? "—"}</td>
+                    <td>{c.phone ?? "—"}</td>
+                    <td className="text-muted">{c.city ?? "—"}</td>
+                    <td className="tabular-nums">{c.order_count}</td>
+                    <td className="tabular-nums">
+                      {formatCurrency(c.total_purchases)}
+                    </td>
+                    <td>
+                      <span
+                        className={
+                          c.is_active
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-red-600 dark:text-red-400"
+                        }
+                      >
+                        {c.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
   );
 }
