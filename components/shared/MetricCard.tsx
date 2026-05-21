@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { LucideIcon, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FadeIn } from "@/components/motion/FadeIn";
@@ -7,7 +8,7 @@ import { FadeIn } from "@/components/motion/FadeIn";
 type MetricCardProps = {
   label: string;
   value: string | number;
-  sub?: string;
+  sub?: ReactNode;
   icon?: LucideIcon;
   trend?: "up" | "down" | "neutral";
   delay?: number;

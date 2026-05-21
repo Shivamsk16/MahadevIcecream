@@ -204,14 +204,28 @@ export default function DashboardPage() {
             <MetricCard
               label="Total Orders"
               value={displayTotalOrders}
-              sub={`Pending + Delivered · ${formatCurrency(displayTotalValue)}`}
+              sub={
+                <>
+                  Pending + Delivered ·{" "}
+                  <span className="font-semibold text-heading">
+                    {formatCurrency(displayTotalValue)}
+                  </span>
+                </>
+              }
               icon={ShoppingBag}
               delay={0}
             />
             <MetricCard
               label="Pending Orders"
               value={displayPendingOrders}
-              sub={`Pending + Confirmed · ${formatCurrency(displayPendingValue)}`}
+              sub={
+                <>
+                  Pending + Confirmed ·{" "}
+                  <span className="font-semibold text-heading">
+                    {formatCurrency(displayPendingValue)}
+                  </span>
+                </>
+              }
               icon={Clock}
               trend={displayPendingOrders ? "up" : "neutral"}
               delay={0.1}
@@ -219,7 +233,14 @@ export default function DashboardPage() {
             <MetricCard
               label="Delivered Orders"
               value={displayDeliveredOrders}
-              sub={`Delivered only · ${formatCurrency(displayDeliveredValue)}`}
+              sub={
+                <>
+                  Delivered only ·{" "}
+                  <span className="font-semibold text-heading">
+                    {formatCurrency(displayDeliveredValue)}
+                  </span>
+                </>
+              }
               icon={Truck}
               trend="up"
               delay={0.15}
