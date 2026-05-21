@@ -78,6 +78,10 @@ export default function DashboardPage() {
     metrics.pending_orders + metrics.confirmed_orders;
   const displayDeliveredOrders = metrics.delivered_orders;
   const displayTotalOrders = displayPendingOrders + displayDeliveredOrders;
+  const displayPendingValue = metrics.pending_order_value;
+  const displayDeliveredValue =
+    metrics.total_order_value - metrics.pending_order_value;
+  const displayTotalValue = displayPendingValue + displayDeliveredValue;
 
   const refreshInventory = useCallback(async () => {
     try {
@@ -200,14 +204,14 @@ export default function DashboardPage() {
             <MetricCard
               label="Total Orders"
               value={displayTotalOrders}
-              sub="Pending + Delivered"
+              sub={`Pending + Delivered · ${formatCurrency(displayTotalValue)}`}
               icon={ShoppingBag}
               delay={0}
             />
             <MetricCard
               label="Pending Orders"
               value={displayPendingOrders}
-              sub="Pending + Confirmed"
+              sub={`Pending + Confirmed · ${formatCurrency(displayPendingValue)}`}
               icon={Clock}
               trend={displayPendingOrders ? "up" : "neutral"}
               delay={0.1}
@@ -215,7 +219,7 @@ export default function DashboardPage() {
             <MetricCard
               label="Delivered Orders"
               value={displayDeliveredOrders}
-              sub="Delivered only"
+              sub={`Delivered only · ${formatCurrency(displayDeliveredValue)}`}
               icon={Truck}
               trend="up"
               delay={0.15}

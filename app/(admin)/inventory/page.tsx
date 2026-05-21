@@ -372,7 +372,6 @@ export default function InventoryPage() {
                 <th>Product</th>
                 <th>Category</th>
                 <th>Stock</th>
-                <th>Threshold</th>
                 <th>Status</th>
                 <th>Updated</th>
                 <th>Purchase</th>
@@ -411,9 +410,6 @@ export default function InventoryPage() {
                   </td>
                   <td>
                     <StockQuantityBadge product={p} />
-                  </td>
-                  <td className="tabular-nums text-muted">
-                    {p.low_stock_threshold ?? 10}
                   </td>
                   <td>
                     <StockStatusBadge product={p} />
