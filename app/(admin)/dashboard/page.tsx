@@ -1,8 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
-import { DashboardMetrics, Order, Product } from "@/lib/types";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Order, Product } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils/formatCurrency";
 import { formatDateTime } from "@/lib/utils/formatDate";
 import { getOrderCustomerName } from "@/lib/utils/order";
@@ -12,9 +12,22 @@ import {
   getInventoryAlerts,
   loadDashboardData,
 } from "@/lib/actions/dashboard.actions";
+import { fetchDashboardOrders } from "@/lib/dashboard/fetchDashboardOrders";
 import { useRealtimeDashboard } from "@/lib/hooks/useRealtimeDashboard";
+import {
+  buildDashboardChartData,
+  computeMetricsFromOrders,
+  filterOrdersForDashboard,
+  formatDashboardPeriodLabel,
+  getChartSectionTitle,
+  getRecentOrdersForPeriod,
+  getTodayDateInputValue,
+  getWelcomePendingValueLabel,
+  getWelcomeRevenueLabel,
+  type DashboardDateFilterMode,
+} from "@/lib/utils/dashboardAnalytics";
+import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
 import Link from "next/link";
-import { format } from "date-fns";
 import { toast } from "sonner";
 import { AdjustStockModal } from "@/components/inventory/AdjustStockModal";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -54,25 +67,52 @@ function ChartSkeleton() {
   );
 }
 
-const EMPTY_METRICS: DashboardMetrics = {
-  total_orders: 0,
-  total_order_value: 0,
-  pending_orders: 0,
-  pending_order_value: 0,
-  confirmed_orders: 0,
-  delivered_orders: 0,
-};
-
 export default function DashboardPage() {
-  const [metrics, setMetrics] = useState<DashboardMetrics>(EMPTY_METRICS);
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [chartData, setChartData] = useState<{ day: string; orders: number }[]>(
-    []
-  );
+  const todayInput = getTodayDateInputValue();
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [filterMode, setFilterMode] = useState<DashboardDateFilterMode>("all");
+  const [customDate, setCustomDate] = useState(todayInput);
+  const [rangeFrom, setRangeFrom] = useState(todayInput);
+  const [rangeTo, setRangeTo] = useState(todayInput);
   const [outOfStockProducts, setOutOfStockProducts] = useState<Product[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const filteredOrders = useMemo(
+    () =>
+      filterOrdersForDashboard(
+        allOrders,
+        filterMode,
+        customDate,
+        rangeFrom,
+        rangeTo
+      ),
+    [allOrders, filterMode, customDate, rangeFrom, rangeTo]
+  );
+
+  const metrics = useMemo(
+    () => computeMetricsFromOrders(filteredOrders),
+    [filteredOrders]
+  );
+
+  const chartData = useMemo(
+    () =>
+      buildDashboardChartData(
+        allOrders,
+        filteredOrders,
+        filterMode,
+        customDate,
+        rangeFrom,
+        rangeTo
+      ),
+    [allOrders, filteredOrders, filterMode, customDate, rangeFrom, rangeTo]
+  );
+
+  const recentOrders = useMemo(
+    () => getRecentOrdersForPeriod(filteredOrders),
+    [filteredOrders]
+  );
 
   const displayPendingOrders =
     metrics.pending_orders + metrics.confirmed_orders;
@@ -82,6 +122,21 @@ export default function DashboardPage() {
   const displayDeliveredValue =
     metrics.total_order_value - metrics.pending_order_value;
   const displayTotalValue = displayPendingValue + displayDeliveredValue;
+
+  const periodLabel = formatDashboardPeriodLabel(
+    filterMode,
+    customDate,
+    rangeFrom,
+    rangeTo
+  );
+  const chartTitle = getChartSectionTitle(
+    filterMode,
+    customDate,
+    rangeFrom,
+    rangeTo
+  );
+  const revenueLabel = getWelcomeRevenueLabel(filterMode);
+  const pendingValueLabel = getWelcomePendingValueLabel(filterMode);
 
   const refreshInventory = useCallback(async () => {
     try {
@@ -95,10 +150,11 @@ export default function DashboardPage() {
 
   const refreshOrdersAndMetrics = useCallback(async () => {
     try {
-      const payload = await loadDashboardData();
-      setMetrics(payload.metrics);
-      setRecentOrders(payload.recentOrders);
-      setChartData(payload.chartData);
+      const [orders, payload] = await Promise.all([
+        fetchDashboardOrders(),
+        loadDashboardData(),
+      ]);
+      setAllOrders(orders);
       setOutOfStockProducts(payload.outOfStockProducts);
       setLowStockProducts(payload.lowStockProducts);
       if (payload.errors.length > 0) {
@@ -148,24 +204,35 @@ export default function DashboardPage() {
     { name: "Delivered", value: metrics.delivered_orders },
   ].filter((d) => d.value > 0);
 
-  const todayLabel = format(new Date(), "EEEE, MMMM d");
-  const safeChartData =
-    chartData.length > 0
-      ? chartData
-      : Array.from({ length: 7 }, (_, i) => ({
-          day: format(new Date(Date.now() - (6 - i) * 86400000), "EEE"),
-          orders: 0,
-        }));
+  const chartHasOrders = chartData.some((d) => d.orders > 0);
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Dashboard"
-        description={`Today's overview · ${todayLabel}`}
+        description={periodLabel}
+        className="sm:items-center"
       >
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/admin/orders">View all orders</Link>
-        </Button>
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
+          <DashboardDateFilter
+            mode={filterMode}
+            onModeChange={setFilterMode}
+            customDate={customDate}
+            onCustomDateChange={setCustomDate}
+            rangeFrom={rangeFrom}
+            onRangeFromChange={setRangeFrom}
+            rangeTo={rangeTo}
+            onRangeToChange={setRangeTo}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 shrink-0"
+            asChild
+          >
+            <Link href="/admin/orders">View all orders</Link>
+          </Button>
+        </div>
       </PageHeader>
 
       <FadeIn>
@@ -177,14 +244,14 @@ export default function DashboardPage() {
               : "All caught up"}
           </h2>
           <p className="mt-2 text-sm text-muted">
-            Total revenue:{" "}
+            {revenueLabel}:{" "}
             <span className="font-semibold text-heading">
               {formatCurrency(metrics.total_order_value)}
             </span>
             {metrics.pending_order_value > 0 ? (
               <>
                 {" "}
-                · Pending value:{" "}
+                · {pendingValueLabel}:{" "}
                 <span className="font-medium text-warning">
                   {formatCurrency(metrics.pending_order_value)}
                 </span>
@@ -194,7 +261,10 @@ export default function DashboardPage() {
         </div>
       </FadeIn>
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section
+        className="grid gap-4 transition-opacity duration-200 sm:grid-cols-3"
+        style={{ opacity: loading ? 0.6 : 1 }}
+      >
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => (
             <MetricCardSkeleton key={i} />
@@ -251,14 +321,14 @@ export default function DashboardPage() {
 
       <section className="grid gap-6 lg:grid-cols-2">
         <FadeIn delay={0.1} className="dashboard-card p-6">
-          <h2 className="card-title">Orders (Last 7 Days)</h2>
+          <h2 className="card-title">{chartTitle}</h2>
           <div className="mt-4">
-            {safeChartData.every((d) => d.orders === 0) && !loading ? (
+            {!chartHasOrders && !loading ? (
               <p className="flex h-[240px] items-center justify-center text-sm text-muted">
-                No orders in the last 7 days
+                No orders for this period
               </p>
             ) : (
-              <OrdersBarChart data={safeChartData} />
+              <OrdersBarChart data={chartData} />
             )}
           </div>
         </FadeIn>
@@ -269,7 +339,7 @@ export default function DashboardPage() {
               <StatusPieChart data={pieData} />
             ) : (
               <p className="flex h-[240px] items-center justify-center text-sm text-muted">
-                No orders yet
+                No orders for this period
               </p>
             )}
           </div>
@@ -338,7 +408,7 @@ export default function DashboardPage() {
             </table>
             {!loading && recentOrders.length === 0 && (
               <p className="p-12 text-center text-sm text-muted">
-                No orders yet
+                No orders for this period
               </p>
             )}
           </div>
