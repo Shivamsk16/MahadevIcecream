@@ -86,16 +86,28 @@ CREATE TABLE order_items (
 CREATE OR REPLACE FUNCTION generate_order_number()
 RETURNS TEXT AS $$
 DECLARE
-  day_part TEXT;
-  month_part TEXT;
-  year_part TEXT;
-  seq INT;
+  candidate TEXT;
+  attempts INT := 0;
+  date_part TEXT;
+  suffix TEXT;
 BEGIN
-  day_part := TO_CHAR(NOW(), 'DD');
-  month_part := TO_CHAR(NOW(), 'MM');
-  year_part := TO_CHAR(NOW(), 'YYYY');
-  SELECT COUNT(*) + 1 INTO seq FROM orders WHERE DATE(placed_at) = CURRENT_DATE;
-  RETURN 'ORD-' || day_part || '-' || month_part || '-' || year_part || '-' || LPAD(seq::TEXT, 5, '0');
+  date_part := TO_CHAR(NOW(), 'YYYYMMDD');
+
+  LOOP
+    attempts := attempts + 1;
+    suffix := UPPER(SUBSTRING(ENCODE(gen_random_bytes(3), 'hex') FROM 1 FOR 6));
+    candidate := 'ORD-' || date_part || '-' || suffix;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM orders WHERE order_number = candidate
+    ) THEN
+      RETURN candidate;
+    END IF;
+
+    IF attempts >= 12 THEN
+      RAISE EXCEPTION 'Could not generate unique order number after % attempts', attempts;
+    END IF;
+  END LOOP;
 END;
 $$ LANGUAGE plpgsql;
 

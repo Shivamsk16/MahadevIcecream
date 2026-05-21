@@ -2,7 +2,13 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { CartItem } from "@/lib/types";
+import {
+  generateOrderNumber,
+  isOrderNumberDuplicateError,
+} from "@/lib/utils/generateOrderNumber";
 import { revalidatePath } from "next/cache";
+
+const ORDER_NUMBER_MAX_ATTEMPTS = 8;
 
 function parseInsufficientStockError(message: string): string | null {
   const match = message.match(/INSUFFICIENT_STOCK:(.+)/);
@@ -37,20 +43,43 @@ export async function placeOrder(cartItems: CartItem[], notes?: string) {
     (sum, i) => sum + i.product.price * i.quantity,
     0
   );
-  const { data: order, error: orderError } = await supabase
-    .from("orders")
-    .insert({
-      customer_id: user.id,
-      status: "pending",
-      total_amount,
-      discount_amount: 0,
-      net_amount: total_amount,
-      notes,
-    })
-    .select()
-    .single();
 
-  if (orderError) throw new Error(orderError.message);
+  let order: { id: string; order_number: string } | null = null;
+  let lastOrderError: { code?: string; message?: string } | null = null;
+
+  for (let attempt = 0; attempt < ORDER_NUMBER_MAX_ATTEMPTS; attempt++) {
+    const order_number = generateOrderNumber();
+    const { data, error: orderError } = await supabase
+      .from("orders")
+      .insert({
+        order_number,
+        customer_id: user.id,
+        status: "pending",
+        total_amount,
+        discount_amount: 0,
+        net_amount: total_amount,
+        notes,
+      })
+      .select("id, order_number")
+      .single();
+
+    if (!orderError && data) {
+      order = data;
+      break;
+    }
+
+    lastOrderError = orderError;
+    if (!orderError || !isOrderNumberDuplicateError(orderError)) {
+      throw new Error(orderError?.message ?? "Failed to place order");
+    }
+  }
+
+  if (!order) {
+    throw new Error(
+      lastOrderError?.message ??
+        "Could not generate a unique order number. Please try again."
+    );
+  }
 
   const orderItems = cartItems.map((item) => ({
     order_id: order.id,
