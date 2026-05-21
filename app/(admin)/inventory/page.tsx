@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { Product, StockLog, StockStatus } from "@/lib/types";
@@ -16,7 +16,21 @@ import { adjustProductStock } from "@/lib/actions/stock.actions";
 import { toast } from "sonner";
 import { getProductStockStatus } from "@/lib/utils/stock";
 import { formatDateTime } from "@/lib/utils/formatDate";
-import { ChevronDown, ChevronUp, Search, Package, AlertTriangle, PackageX } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  ChevronDown,
+  ChevronUp,
+  Search,
+  Package,
+  AlertTriangle,
+  PackageX,
+  X,
+} from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { MetricCard } from "@/components/shared/MetricCard";
 import { FadeIn } from "@/components/motion/FadeIn";
@@ -45,16 +59,15 @@ export default function InventoryPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [stockSort, setStockSort] = useState<StockSort>("default");
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
   const [stockLogs, setStockLogs] = useState<StockLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(true);
   const [purchaseInputs, setPurchaseInputs] = useState<Record<string, string>>(
     {}
   );
-  const [purchaseLoading, setPurchaseLoading] = useState<
-    Record<string, boolean>
-  >({});
+  const [bulkPurchasing, setBulkPurchasing] = useState(false);
+  const scrollYRef = useRef(0);
 
   const loadProducts = useCallback(async () => {
     const supabase = createClient();
@@ -149,6 +162,17 @@ export default function InventoryPage() {
     return list;
   }, [products, search, statusFilter, categoryFilter, stockSort]);
 
+  const stagedPurchases = useMemo(() => {
+    return products
+      .map((p) => ({
+        product: p,
+        raw: purchaseInputs[p.id]?.trim() ?? "",
+      }))
+      .filter(({ raw }) => raw !== "");
+  }, [products, purchaseInputs]);
+
+  const hasStagedPurchases = stagedPurchases.length > 0;
+
   async function loadStockLogs(productId: string) {
     setLogsLoading(true);
     const supabase = createClient();
@@ -163,42 +187,67 @@ export default function InventoryPage() {
     setLogsLoading(false);
   }
 
-  async function handlePurchaseConfirm(
-    e: React.MouseEvent | React.KeyboardEvent,
-    product: Product
-  ) {
-    e.stopPropagation();
-    const raw = purchaseInputs[product.id]?.trim() ?? "";
-    const qty = parseInt(raw, 10);
-    if (!raw || !Number.isInteger(qty) || qty <= 0) {
-      toast.error("Enter a valid positive number for purchase quantity");
-      return;
+  function openStockHistory(product: Product) {
+    scrollYRef.current = window.scrollY;
+    setHistoryProduct(product);
+    setHistoryOpen(true);
+    void loadStockLogs(product.id);
+  }
+
+  function closeStockHistory() {
+    setHistoryProduct(null);
+    setStockLogs([]);
+    requestAnimationFrame(() => {
+      window.scrollTo(0, scrollYRef.current);
+    });
+  }
+
+  async function handleBulkPurchaseConfirm() {
+    if (!hasStagedPurchases || bulkPurchasing) return;
+
+    const validated: { product: Product; qty: number }[] = [];
+    for (const { product, raw } of stagedPurchases) {
+      const qty = parseInt(raw, 10);
+      if (!Number.isInteger(qty) || qty <= 0) {
+        toast.error(
+          `Enter a valid positive number for ${product.name}`
+        );
+        return;
+      }
+      validated.push({ product, qty });
     }
-    setPurchaseLoading((prev) => ({ ...prev, [product.id]: true }));
+
+    setBulkPurchasing(true);
+    const processedIds: string[] = [];
     try {
-      await adjustProductStock(product.id, "add", qty, "Purchase");
-      toast.success(`Added ${qty} units to ${product.name}`);
-      setPurchaseInputs((prev) => ({ ...prev, [product.id]: "" }));
+      for (const { product, qty } of validated) {
+        await adjustProductStock(product.id, "add", qty, "Purchase");
+        processedIds.push(product.id);
+      }
+      toast.success(
+        validated.length === 1
+          ? `Added ${validated[0].qty} units to ${validated[0].product.name}`
+          : `Updated stock for ${validated.length} products`
+      );
+      setPurchaseInputs((prev) => {
+        const next = { ...prev };
+        processedIds.forEach((id) => {
+          delete next[id];
+        });
+        return next;
+      });
       await loadProducts();
-      if (selectedProductId === product.id) {
-        await loadStockLogs(product.id);
+      if (
+        historyProduct &&
+        processedIds.includes(historyProduct.id)
+      ) {
+        await loadStockLogs(historyProduct.id);
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to add stock");
     } finally {
-      setPurchaseLoading((prev) => ({ ...prev, [product.id]: false }));
+      setBulkPurchasing(false);
     }
-  }
-
-  function selectProduct(product: Product) {
-    if (selectedProductId === product.id) {
-      setSelectedProductId(null);
-      setStockLogs([]);
-      return;
-    }
-    setSelectedProductId(product.id);
-    setHistoryOpen(true);
-    loadStockLogs(product.id);
   }
 
   if (loading) {
@@ -216,8 +265,6 @@ export default function InventoryPage() {
       </div>
     );
   }
-
-  const selectedProduct = products.find((p) => p.id === selectedProductId);
 
   return (
     <div className="space-y-8">
@@ -338,9 +385,9 @@ export default function InventoryPage() {
                   key={p.id}
                   className={cn(
                     "cursor-pointer",
-                    selectedProductId === p.id && "bg-primary-soft/40"
+                    historyProduct?.id === p.id && "bg-primary-soft/40"
                   )}
-                  onClick={() => selectProduct(p)}
+                  onClick={() => openStockHistory(p)}
                 >
                   <td>
                     <div className="relative h-10 w-10 overflow-hidden rounded-lg bg-surface-secondary">
@@ -375,49 +422,36 @@ export default function InventoryPage() {
                     {formatDateTime(p.updated_at)}
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min={1}
-                        step={1}
-                        placeholder="Qty"
-                        value={purchaseInputs[p.id] ?? ""}
-                        disabled={!!purchaseLoading[p.id]}
-                        onChange={(e) =>
-                          setPurchaseInputs((prev) => ({
-                            ...prev,
-                            [p.id]: e.target.value,
-                          }))
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      placeholder="Qty"
+                      value={purchaseInputs[p.id] ?? ""}
+                      disabled={bulkPurchasing}
+                      onChange={(e) =>
+                        setPurchaseInputs((prev) => ({
+                          ...prev,
+                          [p.id]: e.target.value,
+                        }))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && hasStagedPurchases) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          void handleBulkPurchaseConfirm();
                         }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            void handlePurchaseConfirm(e, p);
-                          }
-                        }}
-                        className="h-8 w-20 text-xs"
-                        aria-label={`Purchase quantity for ${p.name}`}
-                      />
-                      <Button
-                        size="sm"
-                        className="h-8 px-2.5 text-xs"
-                        disabled={
-                          !!purchaseLoading[p.id] ||
-                          !purchaseInputs[p.id]?.trim()
-                        }
-                        onClick={(e) => void handlePurchaseConfirm(e, p)}
-                      >
-                        {purchaseLoading[p.id] ? "…" : "Confirm"}
-                      </Button>
-                    </div>
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="h-8 w-20 text-xs"
+                      aria-label={`Purchase quantity for ${p.name}`}
+                    />
                   </td>
-                  <td>
+                  <td onClick={(e) => e.stopPropagation()}>
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setAdjustProduct(p);
-                      }}
+                      onClick={() => setAdjustProduct(p)}
                     >
                       Adjust
                     </Button>
@@ -439,78 +473,148 @@ export default function InventoryPage() {
             </button>
           </p>
         )}
+        {hasStagedPurchases && (
+          <div className="flex justify-end border-t border-neutral-200 px-6 py-4 dark:border-zinc-800">
+            <Button
+              disabled={bulkPurchasing}
+              onClick={() => void handleBulkPurchaseConfirm()}
+            >
+              {bulkPurchasing ? "Processing…" : "Confirm Changes"}
+            </Button>
+          </div>
+        )}
       </div>
 
-      {selectedProduct && (
-        <FadeIn className="dashboard-card overflow-hidden">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between border-b border-neutral-200 px-6 py-4 text-left"
-            onClick={() => setHistoryOpen((o) => !o)}
-          >
-            <span className="font-semibold text-heading">
-              Stock history — {selectedProduct.name}
-            </span>
-            {historyOpen ? (
-              <ChevronUp className="h-5 w-5 text-muted" />
-            ) : (
-              <ChevronDown className="h-5 w-5 text-muted" />
-            )}
-          </button>
-          {historyOpen && (
-            <div className="max-h-80 overflow-auto p-2">
-              {logsLoading ? (
-                <div className="flex justify-center py-12">
-                  <LoadingSpinner />
+      <Dialog
+        open={!!historyProduct}
+        onOpenChange={(open) => {
+          if (!open) closeStockHistory();
+        }}
+      >
+        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg [&>button]:hidden">
+          <DialogHeader className="sr-only">
+            <DialogTitle>
+              {historyProduct
+                ? `Stock history — ${historyProduct.name}`
+                : "Stock history"}
+            </DialogTitle>
+          </DialogHeader>
+          {historyProduct && (
+            <div className="dashboard-card overflow-hidden border-0 shadow-none">
+              <div className="flex items-center justify-between gap-3 border-b border-neutral-200 px-6 py-4 dark:border-zinc-800">
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 text-left"
+                  onClick={() => setHistoryOpen((o) => !o)}
+                >
+                  <span className="font-semibold text-heading">
+                    Stock history — {historyProduct.name}
+                  </span>
+                </button>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    className="rounded-lg p-1 text-muted opacity-70 transition-opacity hover:bg-neutral-100 hover:opacity-100 focus:outline-none focus:ring-4 focus:ring-red-100 dark:hover:bg-zinc-800 dark:focus:ring-red-900/30"
+                    onClick={() => setHistoryOpen((o) => !o)}
+                    aria-expanded={historyOpen}
+                    aria-label={
+                      historyOpen ? "Collapse history" : "Expand history"
+                    }
+                  >
+                    {historyOpen ? (
+                      <ChevronUp className="h-5 w-5" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg p-1 text-muted opacity-70 transition-opacity hover:bg-neutral-100 hover:opacity-100 focus:outline-none focus:ring-4 focus:ring-red-100 dark:hover:bg-zinc-800 dark:focus:ring-red-900/30"
+                    onClick={closeStockHistory}
+                    aria-label="Close"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-              ) : stockLogs.length === 0 ? (
-                <p className="py-12 text-center text-sm text-muted">
-                  No stock movements yet
-                </p>
-              ) : (
-                <ul className="space-y-0 divide-y divide-neutral-100">
-                  {stockLogs.map((log) => (
-                    <li
-                      key={log.id}
-                      className="flex flex-col gap-2 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-heading">
-                          {CHANGE_LABELS[log.change_type] ?? log.change_type}
-                        </p>
-                        <p className="text-xs text-muted">
-                          {formatDateTime(log.created_at)}
-                          {(log.changer as { full_name?: string })?.full_name &&
-                            ` · ${(log.changer as { full_name?: string }).full_name}`}
-                        </p>
-                        {log.note && (
-                          <p className="mt-1 text-xs text-muted">{log.note}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4 text-sm tabular-nums">
-                        <span className="text-muted">
-                          {log.quantity_before} → {log.quantity_after}
-                        </span>
-                        <span
-                          className={cn(
-                            "rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                            log.quantity_change >= 0
-                              ? "bg-success-soft text-success"
-                              : "bg-danger-soft text-danger"
-                          )}
+              </div>
+              {historyOpen && (
+                <div className="max-h-80 overflow-auto p-2">
+                  {logsLoading ? (
+                    <div className="flex justify-center py-12">
+                      <LoadingSpinner />
+                    </div>
+                  ) : stockLogs.length === 0 ? (
+                    <p className="py-12 text-center text-sm text-muted">
+                      No stock movements yet
+                    </p>
+                  ) : (
+                    <ul className="space-y-0 divide-y divide-neutral-100">
+                      {stockLogs.map((log) => (
+                        <li
+                          key={log.id}
+                          className="flex flex-col gap-2 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
                         >
-                          {log.quantity_change >= 0 ? "+" : ""}
-                          {log.quantity_change}
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-heading">
+                              {CHANGE_LABELS[log.change_type] ??
+                                log.change_type}
+                            </p>
+                            <p className="text-xs text-muted">
+                              {formatDateTime(log.created_at)}
+                              {(log.changer as { full_name?: string })
+                                ?.full_name &&
+                                ` · ${(log.changer as { full_name?: string }).full_name}`}
+                            </p>
+                            {log.note && (
+                              <p className="mt-1 text-xs text-muted">
+                                {log.note}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 text-sm tabular-nums">
+                            <span className="text-muted">
+                              {log.quantity_before} → {log.quantity_after}
+                            </span>
+                            <span
+                              className={cn(
+                                "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                                log.quantity_change >= 0
+                                  ? "bg-success-soft text-success"
+                                  : "bg-danger-soft text-danger"
+                              )}
+                            >
+                              {log.quantity_change >= 0 ? "+" : ""}
+                              {log.quantity_change}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               )}
+              <div className="flex justify-end gap-2 border-t border-neutral-200 px-6 py-4 dark:border-zinc-800">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={closeStockHistory}
+                >
+                  Close
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setAdjustProduct(historyProduct);
+                    setHistoryProduct(null);
+                  }}
+                >
+                  Deduct stock
+                </Button>
+              </div>
             </div>
           )}
-        </FadeIn>
-      )}
+        </DialogContent>
+      </Dialog>
 
       <AdjustStockModal
         product={adjustProduct}
@@ -518,7 +622,7 @@ export default function InventoryPage() {
         onOpenChange={(open) => !open && setAdjustProduct(null)}
         onSuccess={() => {
           loadProducts();
-          if (selectedProductId) loadStockLogs(selectedProductId);
+          if (historyProduct) void loadStockLogs(historyProduct.id);
         }}
       />
     </div>
