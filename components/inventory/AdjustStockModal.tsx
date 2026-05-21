@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 type AdjustStockModalProps = {
   product: Product | null;
@@ -30,14 +29,12 @@ export function AdjustStockModal({
   onOpenChange,
   onSuccess,
 }: AdjustStockModalProps) {
-  const [action, setAction] = useState<"add" | "deduct">("add");
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
 
   function handleOpenChange(next: boolean) {
     if (!next) {
-      setAction("add");
       setQuantity("");
       setNote("");
     }
@@ -56,12 +53,13 @@ export function AdjustStockModal({
 
     setLoading(true);
     try {
-      await adjustProductStock(product.id, action, qty, note);
-      toast.success(
-        action === "add"
-          ? `Added ${qty} units to stock`
-          : `Deducted ${qty} units from stock`
+      await adjustProductStock(
+        product.id,
+        "deduct",
+        qty,
+        note.trim() || undefined
       );
+      toast.success(`Deducted ${qty} units from stock`);
       handleOpenChange(false);
       onSuccess?.();
     } catch (err) {
@@ -75,9 +73,10 @@ export function AdjustStockModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Adjust stock</DialogTitle>
+          <DialogTitle>Deduct stock</DialogTitle>
           <DialogDescription>
-            Add or remove inventory. All changes are logged.
+            Manually reduce inventory for damaged, expired, or lost stock. All
+            changes are logged.
           </DialogDescription>
         </DialogHeader>
 
@@ -94,28 +93,7 @@ export function AdjustStockModal({
             </div>
 
             <div className="space-y-2">
-              <Label>Action</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {(["add", "deduct"] as const).map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    className={cn(
-                      "rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors",
-                      action === type
-                        ? "border-primary bg-primary-soft text-primary"
-                        : "border-neutral-200 text-muted hover:bg-neutral-50"
-                    )}
-                    onClick={() => setAction(type)}
-                  >
-                    {type === "add" ? "Add stock" : "Deduct stock"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="adjust-qty">Quantity</Label>
+              <Label htmlFor="adjust-qty">Quantity to deduct</Label>
               <Input
                 id="adjust-qty"
                 type="number"
@@ -129,12 +107,12 @@ export function AdjustStockModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="adjust-note">Note (optional)</Label>
+              <Label htmlFor="adjust-note">Reason (optional)</Label>
               <Input
                 id="adjust-note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="e.g. New stock received"
+                placeholder="e.g. Damaged goods, expired stock"
               />
             </div>
 
@@ -147,7 +125,7 @@ export function AdjustStockModal({
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? "Saving…" : "Confirm"}
+                {loading ? "Saving…" : "Confirm Deduction"}
               </Button>
             </DialogFooter>
           </form>

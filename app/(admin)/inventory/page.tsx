@@ -12,6 +12,8 @@ import {
   StockStatusBadge,
 } from "@/components/inventory/StockStatusBadge";
 import { AdjustStockModal } from "@/components/inventory/AdjustStockModal";
+import { adjustProductStock } from "@/lib/actions/stock.actions";
+import { toast } from "sonner";
 import { getProductStockStatus } from "@/lib/utils/stock";
 import { formatDateTime } from "@/lib/utils/formatDate";
 import { ChevronDown, ChevronUp, Search, Package, AlertTriangle, PackageX } from "lucide-react";
@@ -47,6 +49,12 @@ export default function InventoryPage() {
   const [stockLogs, setStockLogs] = useState<StockLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(true);
+  const [purchaseInputs, setPurchaseInputs] = useState<Record<string, string>>(
+    {}
+  );
+  const [purchaseLoading, setPurchaseLoading] = useState<
+    Record<string, boolean>
+  >({});
 
   const loadProducts = useCallback(async () => {
     const supabase = createClient();
@@ -153,6 +161,33 @@ export default function InventoryPage() {
       .order("created_at", { ascending: false });
     setStockLogs((data as StockLog[]) ?? []);
     setLogsLoading(false);
+  }
+
+  async function handlePurchaseConfirm(
+    e: React.MouseEvent | React.KeyboardEvent,
+    product: Product
+  ) {
+    e.stopPropagation();
+    const raw = purchaseInputs[product.id]?.trim() ?? "";
+    const qty = parseInt(raw, 10);
+    if (!raw || !Number.isInteger(qty) || qty <= 0) {
+      toast.error("Enter a valid positive number for purchase quantity");
+      return;
+    }
+    setPurchaseLoading((prev) => ({ ...prev, [product.id]: true }));
+    try {
+      await adjustProductStock(product.id, "add", qty, "Purchase");
+      toast.success(`Added ${qty} units to ${product.name}`);
+      setPurchaseInputs((prev) => ({ ...prev, [product.id]: "" }));
+      await loadProducts();
+      if (selectedProductId === product.id) {
+        await loadStockLogs(product.id);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add stock");
+    } finally {
+      setPurchaseLoading((prev) => ({ ...prev, [product.id]: false }));
+    }
   }
 
   function selectProduct(product: Product) {
@@ -283,7 +318,7 @@ export default function InventoryPage() {
 
       <div className="table-container">
         <div className="max-h-[560px] overflow-auto">
-          <table className="data-table min-w-[800px]">
+          <table className="data-table min-w-[960px]">
             <thead>
               <tr>
                 <th>Image</th>
@@ -293,6 +328,7 @@ export default function InventoryPage() {
                 <th>Threshold</th>
                 <th>Status</th>
                 <th>Updated</th>
+                <th>Purchase</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -337,6 +373,42 @@ export default function InventoryPage() {
                   </td>
                   <td className="text-muted">
                     {formatDateTime(p.updated_at)}
+                  </td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        step={1}
+                        placeholder="Qty"
+                        value={purchaseInputs[p.id] ?? ""}
+                        disabled={!!purchaseLoading[p.id]}
+                        onChange={(e) =>
+                          setPurchaseInputs((prev) => ({
+                            ...prev,
+                            [p.id]: e.target.value,
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            void handlePurchaseConfirm(e, p);
+                          }
+                        }}
+                        className="h-8 w-20 text-xs"
+                        aria-label={`Purchase quantity for ${p.name}`}
+                      />
+                      <Button
+                        size="sm"
+                        className="h-8 px-2.5 text-xs"
+                        disabled={
+                          !!purchaseLoading[p.id] ||
+                          !purchaseInputs[p.id]?.trim()
+                        }
+                        onClick={(e) => void handlePurchaseConfirm(e, p)}
+                      >
+                        {purchaseLoading[p.id] ? "…" : "Confirm"}
+                      </Button>
+                    </div>
                   </td>
                   <td>
                     <Button

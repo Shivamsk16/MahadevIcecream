@@ -23,7 +23,6 @@ import { FadeIn } from "@/components/motion/FadeIn";
 import { MetricCardSkeleton } from "@/components/shared/Skeleton";
 import {
   ShoppingBag,
-  IndianRupee,
   Clock,
   Truck,
   AlertTriangle,
@@ -74,6 +73,11 @@ export default function DashboardPage() {
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const displayPendingOrders =
+    metrics.pending_orders + metrics.confirmed_orders;
+  const displayDeliveredOrders = metrics.delivered_orders;
+  const displayTotalOrders = displayPendingOrders + displayDeliveredOrders;
 
   const refreshInventory = useCallback(async () => {
     try {
@@ -164,8 +168,8 @@ export default function DashboardPage() {
         <div className="dashboard-card bg-gradient-to-br from-surface to-primary-soft/30 p-6 dark:from-zinc-900 dark:to-red-950/20 sm:p-8">
           <p className="section-label">Welcome back</p>
           <h2 className="mt-1 text-2xl font-semibold text-heading sm:text-3xl">
-            {metrics.pending_orders
-              ? `${metrics.pending_orders} orders need your attention`
+            {displayPendingOrders
+              ? `${displayPendingOrders} orders need your attention`
               : "All caught up"}
           </h2>
           <p className="mt-2 text-sm text-muted">
@@ -186,39 +190,32 @@ export default function DashboardPage() {
         </div>
       </FadeIn>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-3">
         {loading ? (
-          Array.from({ length: 4 }).map((_, i) => (
+          Array.from({ length: 3 }).map((_, i) => (
             <MetricCardSkeleton key={i} />
           ))
         ) : (
           <>
             <MetricCard
               label="Total Orders"
-              value={metrics.total_orders}
-              sub="All orders"
+              value={displayTotalOrders}
+              sub="Pending + Delivered"
               icon={ShoppingBag}
               delay={0}
             />
             <MetricCard
-              label="Total Value"
-              value={formatCurrency(metrics.total_order_value)}
-              sub="All orders"
-              icon={IndianRupee}
-              delay={0.05}
-            />
-            <MetricCard
-              label="Pending"
-              value={metrics.pending_orders}
-              sub="Action needed"
+              label="Pending Orders"
+              value={displayPendingOrders}
+              sub="Pending + Confirmed"
               icon={Clock}
-              trend={metrics.pending_orders ? "up" : "neutral"}
+              trend={displayPendingOrders ? "up" : "neutral"}
               delay={0.1}
             />
             <MetricCard
-              label="Delivered"
-              value={metrics.delivered_orders}
-              sub="All orders"
+              label="Delivered Orders"
+              value={displayDeliveredOrders}
+              sub="Delivered only"
               icon={Truck}
               trend="up"
               delay={0.15}
